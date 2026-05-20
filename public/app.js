@@ -58,11 +58,26 @@ function enterApp(user) {
 }
 
 function applyRoleUI(role) {
-  // Show tabs whose data-roles includes the current role (or have no restriction).
+  // Show elements whose data-roles includes the current role (tabs, panels, etc.).
   $$('[data-roles]').forEach(el => {
     const allowed = el.dataset.roles.split(',');
     el.classList.toggle('hidden', !allowed.includes(role));
   });
+
+  // If the active tab is hidden (e.g. Admin cannot use New Sale), switch to first visible tab.
+  const activeTab = $('.tab.active');
+  if (activeTab?.classList.contains('hidden')) {
+    const firstVisible = $$('.tab').find(t => !t.classList.contains('hidden'));
+    if (firstVisible) firstVisible.click();
+  }
+}
+
+function canInitiateReturn() {
+  return ['CASHIER', 'PHARMACIST'].includes(state.user?.role);
+}
+
+function canCompleteSale() {
+  return ['CASHIER', 'PHARMACIST'].includes(state.user?.role);
 }
 
 $('#login-form').addEventListener('submit', async (e) => {
@@ -166,6 +181,7 @@ $('#catalog-search').addEventListener('input', renderCatalog);
 // Sale builder
 
 function addToSale(medicine) {
+  if (!canCompleteSale()) return;
   if (medicine.totalAvailable === 0) {
     toast(`${medicine.name} is out of stock`, 'error');
     return;
@@ -257,6 +273,10 @@ $('#sale-lines').addEventListener('click', (e) => {
 // Complete sale
 
 $('#confirm-sale').addEventListener('click', async () => {
+  if (!canCompleteSale()) {
+    toast('Administrators cannot complete sales', 'error');
+    return;
+  }
   const payload = {
     lines: state.saleLines.map(l => ({ medicineId: l.medicineId, quantity: l.quantity }))
   };
@@ -318,7 +338,7 @@ async function loadHistory() {
     return;
   }
 
-  const canReturn = ['CASHIER', 'PHARMACIST', 'ADMINISTRATOR'].includes(state.user?.role);
+  const canReturn = canInitiateReturn();
   const now = Date.now();
 
   list.innerHTML = sales.map(s => {
@@ -393,6 +413,7 @@ $('#refresh-ledger').addEventListener('click', loadLedger);
 // Returns — initiation 
 
 function navigateToReturn(saleId) {
+  if (!canInitiateReturn()) return;
   $$('.tab').forEach(t => t.classList.remove('active'));
   $$('.view').forEach(v => v.classList.remove('active'));
   const tab = $('[data-view="returns"]');
@@ -472,6 +493,10 @@ $('#return-sale-id').addEventListener('keydown', (e) => {
 });
 
 $('#return-submit').addEventListener('click', async () => {
+  if (!canInitiateReturn()) {
+    toast('Administrators cannot initiate returns', 'error');
+    return;
+  }
   const errEl = $('#return-error');
   errEl.classList.add('hidden');
 

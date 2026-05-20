@@ -53,11 +53,11 @@
         </div>
       </div>
       <nav class="tabs" id="main-tabs">
-        <button class="tab active" data-view="sale">New Sale</button>
+        <button class="tab active" data-view="sale" data-roles="CASHIER,PHARMACIST">New Sale</button>
         <button class="tab" data-view="history">Sales History</button>
         <button class="tab" data-view="ledger">Audit Ledger</button>
         <button class="tab hidden" data-view="batches" data-roles="PHARMACIST,ADMINISTRATOR">Batch Register</button>
-        <button class="tab hidden" data-view="returns"     data-roles="CASHIER,PHARMACIST,ADMINISTRATOR">Returns</button>
+        <button class="tab hidden" data-view="returns"     data-roles="CASHIER,PHARMACIST">Returns</button>
         <button class="tab hidden" data-view="quarantine"   data-roles="PHARMACIST,ADMINISTRATOR">Quarantine</button>
         <button class="tab hidden" data-view="adjustments" data-roles="PHARMACIST,ADMINISTRATOR">Adjustments</button>
         <button class="tab hidden" data-view="reports"     data-roles="PHARMACIST,ADMINISTRATOR">Reports</button>
@@ -127,7 +127,7 @@
             <h2>Sales History</h2>
             <button id="refresh-history" class="btn-secondary">Refresh</button>
           </div>
-          <div id="history-list" class="history-list" data-return-role="CASHIER,PHARMACIST,ADMINISTRATOR"></div>
+          <div id="history-list" class="history-list" data-return-role="CASHIER,PHARMACIST"></div>
         </div>
       </section>
 
@@ -136,7 +136,7 @@
         <div class="layout-split">
 
 
-          <div class="panel panel-accent" style="max-width:440px">
+          <div class="panel panel-accent" style="max-width:440px" data-roles="CASHIER,PHARMACIST">
             <div class="panel-head">
               <h2>Initiate Return</h2>
             </div>

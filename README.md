@@ -65,7 +65,7 @@ npm run reset
 ## Demo Walkthrough
 
 Demo credentials:
-- **admin / admin123** — Administrator (user management, reports)
+- **admin / admin123** — Administrator (user management, reports; no sales or return initiation)
 - **fatou / fatou123** — Pharmacist (authorize returns, stock adjustments)
 - **amadou / amadou123** — Cashier (sales, return initiation)
 
