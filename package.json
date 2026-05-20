@@ -1,7 +1,7 @@
 {
   "name": "pharmacy-inventory-prototype",
   "version": "1.0.0",
-  "description": "Pharmacy Inventory and Sales System - Academic Prototype (CS 2712)",
+  "description": "Pharmacy Inventory and Sales System",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

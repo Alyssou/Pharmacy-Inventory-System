@@ -1,6 +1,5 @@
 # Pharmacy Inventory & Sales System — Prototype
 
-**Course:** CS 2712 Software Design & Architecture
 **Author:** Alyssa M. F. Youm
 
 This is the full prototype implementation of the Pharmacy Inventory and Sales System,
