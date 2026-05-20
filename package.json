@@ -1,0 +1,15 @@
+{
+  "name": "pharmacy-inventory-prototype",
+  "version": "1.0.0",
+  "description": "Pharmacy Inventory and Sales System - Academic Prototype (CS 2712)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "reset": "rm -f pharmacy.db && node server.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "express": "^4.18.2",
+    "express-session": "^1.17.3"
+  }
+}

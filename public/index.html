@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pharmacy Inventory & Sales System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- LOGIN SCREEN  -->
+  <div id="login-screen">
+    <div class="login-card">
+      <div class="login-brand">
+        <span class="brand-mark">℞</span>
+        <div>
+          <h1>Pharmacy Inventory &amp; Sales</h1>
+          <p class="brand-sub">Academic Prototype &middot; CS 2712</p>
+        </div>
+      </div>
+      <form id="login-form" autocomplete="off">
+        <div class="form-field">
+          <label class="form-label" for="login-username">Username</label>
+          <input id="login-username" type="text" class="form-input" placeholder="e.g. amadou" autofocus>
+        </div>
+        <div class="form-field">
+          <label class="form-label" for="login-password">Password</label>
+          <input id="login-password" type="password" class="form-input" placeholder="password">
+        </div>
+        <div id="login-error" class="login-error hidden"></div>
+        <button type="submit" class="btn-primary" style="margin-top:8px">Sign in</button>
+      </form>
+      <div class="login-hint">
+        <span>Demo accounts:</span>
+        <code>admin / admin123</code>
+        <code>fatou / fatou123</code>
+        <code>amadou / amadou123</code>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN APP -->
+  <div id="app" class="hidden">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">℞</span>
+        <div>
+          <h1>Pharmacy Inventory &amp; Sales</h1>
+          <p class="brand-sub">Academic Prototype &middot; CS 2712</p>
+        </div>
+      </div>
+      <nav class="tabs" id="main-tabs">
+        <button class="tab active" data-view="sale">New Sale</button>
+        <button class="tab" data-view="history">Sales History</button>
+        <button class="tab" data-view="ledger">Audit Ledger</button>
+        <button class="tab hidden" data-view="batches" data-roles="PHARMACIST,ADMINISTRATOR">Batch Register</button>
+        <button class="tab hidden" data-view="returns"     data-roles="CASHIER,PHARMACIST,ADMINISTRATOR">Returns</button>
+        <button class="tab hidden" data-view="quarantine"   data-roles="PHARMACIST,ADMINISTRATOR">Quarantine</button>
+        <button class="tab hidden" data-view="adjustments" data-roles="PHARMACIST,ADMINISTRATOR">Adjustments</button>
+        <button class="tab hidden" data-view="reports"     data-roles="PHARMACIST,ADMINISTRATOR">Reports</button>
+        <button class="tab hidden" data-view="admin"       data-roles="ADMINISTRATOR">Admin</button>
+      </nav>
+      <div class="topbar-right">
+        <div class="user-chip">
+          <span id="user-role-label" class="user-role">—</span>
+          <span id="user-name-label" class="user-name">—</span>
+        </div>
+        <button id="logout-btn" class="btn-logout">Sign out</button>
+      </div>
+    </header>
+
+    <!-- ALERT STRIP -->
+    <div id="alert-strip" class="alert-strip hidden">
+      <div class="alert-strip-summary">
+        <span id="alert-strip-count"></span>
+        <button id="alert-toggle" class="alert-toggle">Show details &#9662;</button>
+      </div>
+      <div id="alert-detail" class="alert-detail hidden">
+        <div id="alert-low-stock" class="alert-section"></div>
+        <div id="alert-expiring"  class="alert-section"></div>
+      </div>
+    </div>
+
+    <main>
+      <!-- NEW SALE VIEW -->
+      <section id="view-sale" class="view active">
+        <div class="layout-split">
+
+          
+          <div class="panel">
+            <div class="panel-head">
+              <h2>Medicine Catalog</h2>
+              <input type="text" id="catalog-search" placeholder="Search by name..." class="search-input">
+            </div>
+            <div id="catalog-list" class="catalog-list"></div>
+          </div>
+
+          
+          <div class="panel panel-accent">
+            <div class="panel-head">
+              <h2>Current Sale</h2>
+              <span id="sale-line-count" class="badge">0 lines</span>
+            </div>
+            <div id="sale-lines" class="sale-lines empty">
+              <p class="empty-msg">Click a medicine to add it to the sale.</p>
+            </div>
+            <div class="sale-footer">
+              <div class="total-row">
+                <span class="total-label">Total</span>
+                <span id="sale-total" class="total-amount">0 FCFA</span>
+              </div>
+              <button id="confirm-sale" class="btn-primary" disabled>Complete Sale</button>
+            </div>
+          </div>
+
+        </div>
+        <div id="toast-container"></div>
+      </section>
+
+      <!-- HISTORY VIEW -->
+      <section id="view-history" class="view">
+        <div class="panel full">
+          <div class="panel-head">
+            <h2>Sales History</h2>
+            <button id="refresh-history" class="btn-secondary">Refresh</button>
+          </div>
+          <div id="history-list" class="history-list" data-return-role="CASHIER,PHARMACIST,ADMINISTRATOR"></div>
+        </div>
+      </section>
+
+      <!-- RETURNS VIEW -->
+      <section id="view-returns" class="view">
+        <div class="layout-split">
+
+
+          <div class="panel panel-accent" style="max-width:440px">
+            <div class="panel-head">
+              <h2>Initiate Return</h2>
+            </div>
+            <div class="form-body">
+
+              
+              <div class="form-field">
+                <label class="form-label" for="return-sale-id">Sale ID</label>
+                <div style="display:flex;gap:8px">
+                  <input id="return-sale-id" type="text" class="form-input" placeholder="e.g. SALE-A1B2C3D4" style="flex:1">
+                  <button id="return-load-sale" class="btn-secondary" style="white-space:nowrap">Load Sale</button>
+                </div>
+              </div>
+
+            
+              <div id="return-sale-summary" class="hidden">
+                <div class="return-sale-info" id="return-sale-info"></div>
+                <div class="return-lines-label">Select items to return:</div>
+                <div id="return-line-checks"></div>
+
+                <div class="form-field" style="margin-top:12px">
+                  <label class="form-label" for="return-reason">Reason</label>
+                  <select id="return-reason" class="form-input form-select">
+                    <option value="DISPENSING_ERROR">Dispensing error</option>
+                    <option value="PATIENT_DECLINED">Patient declined / changed mind</option>
+                    <option value="NEAR_EXPIRY">Near expiry returned by patient</option>
+                    <option value="OTHER">Other</option>
+                  </select>
+                </div>
+                <div class="form-field">
+                  <label class="form-label" for="return-notes">Notes (optional)</label>
+                  <textarea id="return-notes" class="form-input" rows="2" placeholder="Additional notes…"></textarea>
+                </div>
+                <div id="return-error" class="login-error hidden"></div>
+                <button id="return-submit" class="btn-primary">Submit Return Request</button>
+              </div>
+              <div id="return-load-error" class="login-error hidden"></div>
+
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <h2>Return Requests</h2>
+              <button id="refresh-returns" class="btn-secondary">Refresh</button>
+            </div>
+            <div id="returns-list"></div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ADJUSTMENTS VIEW -->
+      <section id="view-adjustments" class="view">
+        <div class="layout-split">
+
+         
+          <div class="panel panel-accent" style="max-width:420px">
+            <div class="panel-head">
+              <h2>Stock Adjustment</h2>
+              <span class="ledger-note">BR17 · Pharmacist only</span>
+            </div>
+            <form id="adj-form" class="form-body">
+
+              <div class="form-field">
+                <label class="form-label" for="adj-medicine">Medicine</label>
+                <select id="adj-medicine" class="form-input form-select">
+                  <option value="">— select medicine —</option>
+                </select>
+              </div>
+
+              <div class="form-field">
+                <label class="form-label" for="adj-batch">Batch</label>
+                <select id="adj-batch" class="form-input form-select" disabled>
+                  <option value="">— select medicine first —</option>
+                </select>
+              </div>
+
+              <div id="adj-preview" class="adj-preview hidden">
+                <div class="adj-preview-row">
+                  <span>Current available</span>
+                  <span id="adj-current-qty" class="mono">—</span>
+                </div>
+                <div class="adj-preview-row">
+                  <span>After adjustment</span>
+                  <span id="adj-new-qty" class="mono">—</span>
+                </div>
+              </div>
+
+              <div class="form-field">
+                <label class="form-label">Direction</label>
+                <div class="radio-group">
+                  <label class="radio-opt" id="adj-dir-inc-lbl">
+                    <input type="radio" name="adj-dir" value="INCREASE" checked> Increase (+)
+                  </label>
+                  <label class="radio-opt" id="adj-dir-dec-lbl">
+                    <input type="radio" name="adj-dir" value="DECREASE"> Decrease (−)
+                  </label>
+                </div>
+              </div>
+
+              <div class="form-field">
+                <label class="form-label" for="adj-qty">Quantity</label>
+                <input id="adj-qty" type="number" class="form-input" min="1" placeholder="e.g. 10">
+              </div>
+
+              <div class="form-field">
+                <label class="form-label" for="adj-reason">Reason</label>
+                <select id="adj-reason" class="form-input form-select">
+                  <option value="PHYSICAL_COUNT">Physical stock count discrepancy</option>
+                  <option value="DAMAGED">Damaged goods removal</option>
+                  <option value="SPILLAGE">Spillage / contamination</option>
+                  <option value="ADMINISTRATIVE">Administrative correction</option>
+                  <option value="OTHER">Other</option>
+                </select>
+              </div>
+
+              <div class="form-field">
+                <label class="form-label" for="adj-notes">Notes (optional)</label>
+                <textarea id="adj-notes" class="form-input" rows="2" placeholder="Describe the reason…"></textarea>
+              </div>
+
+              <div id="adj-error" class="login-error hidden"></div>
+              <button type="submit" class="btn-primary">Apply Adjustment</button>
+            </form>
+          </div>
+
+         
+          <div class="panel">
+            <div class="panel-head">
+              <h2>Adjustment History</h2>
+              <button id="refresh-adjustments" class="btn-secondary">Refresh</button>
+            </div>
+            <div id="adj-history-list" class="ledger-list"></div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- QUARANTINE VIEW -->
+      <section id="view-quarantine" class="view">
+        <div class="panel full">
+          <div class="panel-head">
+            <h2>Quarantine Resolution</h2>
+            <div style="display:flex;align-items:center;gap:12px">
+              <span class="ledger-note">BR13: Release permitted for DISPENSING_ERROR returns only</span>
+              <button id="refresh-quarantine" class="btn-secondary">Refresh</button>
+            </div>
+          </div>
+          <div id="quarantine-list"></div>
+        </div>
+      </section>
+
+      <!-- BATCHES VIEW -->
+      <section id="view-batches" class="view">
+        <div class="layout-split">
+
+          <div class="panel panel-accent" style="max-width:420px">
+            <div class="panel-head">
+              <h2>Register New Batch</h2>
+            </div>
+            <form id="batch-form" class="form-body">
+              <div class="form-field">
+                <label class="form-label" for="batch-medicine">Medicine</label>
+                <select id="batch-medicine" class="form-input form-select"></select>
+              </div>
+              <div class="form-field">
+                <label class="form-label" for="batch-number">Batch Number</label>
+                <input id="batch-number" type="text" class="form-input" placeholder="e.g. PAR-2026-C">
+              </div>
+              <div class="form-field">
+                <label class="form-label" for="batch-supplier">Supplier</label>
+                <input id="batch-supplier" type="text" class="form-input" placeholder="Supplier name">
+              </div>
+              <div class="form-row-2">
+                <div class="form-field">
+                  <label class="form-label" for="batch-intake">Intake Date</label>
+                  <input id="batch-intake" type="date" class="form-input">
+                </div>
+                <div class="form-field">
+                  <label class="form-label" for="batch-expiry">Expiry Date</label>
+                  <input id="batch-expiry" type="date" class="form-input">
+                </div>
+              </div>
+              <div class="form-field">
+                <label class="form-label" for="batch-qty">Quantity Received</label>
+                <input id="batch-qty" type="number" class="form-input" min="1" placeholder="e.g. 200">
+              </div>
+              <div id="batch-error" class="login-error hidden"></div>
+              <button type="submit" class="btn-primary">Register Batch</button>
+            </form>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <h2>Batch Inventory</h2>
+              <button id="refresh-batches" class="btn-secondary">Refresh</button>
+            </div>
+            <div id="batch-list" class="batch-list"></div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- REPORTS VIEW -->
+      <section id="view-reports" class="view">
+        <div class="panel full">
+          <div class="panel-head">
+            <h2>Reports</h2>
+            <span class="ledger-note">Pharmacist &amp; Administrator only</span>
+          </div>
+
+          <div class="report-filters">
+            <div style="display:flex;align-items:center;gap:8px">
+              <label class="form-label" style="margin:0;white-space:nowrap">Report</label>
+              <select id="report-type" class="form-input form-select" style="width:200px">
+                <option value="SALES">Sales Summary</option>
+                <option value="STOCK_VALUATION">Stock Valuation</option>
+                <option value="EXPIRY">Expiry Status</option>
+                <option value="MOVEMENTS">Stock Movements</option>
+              </select>
+            </div>
+            <div id="report-date-range" class="report-date-range">
+              <label class="form-label" style="margin:0">From</label>
+              <input id="report-from" type="date" class="form-input" style="width:140px">
+              <label class="form-label" style="margin:0">To</label>
+              <input id="report-to"   type="date" class="form-input" style="width:140px">
+            </div>
+            <div id="report-type-filter" class="hidden" style="display:flex;align-items:center;gap:8px">
+              <label class="form-label" style="margin:0;white-space:nowrap">Movement Type</label>
+              <select id="report-mov-type" class="form-input form-select" style="width:160px">
+                <option value="ALL">All types</option>
+                <option value="INTAKE">INTAKE</option>
+                <option value="SALE">SALE</option>
+                <option value="RETURN">RETURN</option>
+                <option value="ADJUSTMENT">ADJUSTMENT</option>
+                <option value="QUARANTINE_IN">QUARANTINE_IN</option>
+                <option value="QUARANTINE_OUT">QUARANTINE_OUT</option>
+              </select>
+            </div>
+            <button id="run-report" class="btn-primary" style="width:auto;padding:8px 22px">Run Report</button>
+          </div>
+
+          <div id="report-output" class="report-output"></div>
+        </div>
+      </section>
+
+      <!-- ADMIN VIEW -->
+      <section id="view-admin" class="view">
+        <div class="layout-split">
+
+          <div class="panel panel-accent" style="max-width:400px">
+            <div class="panel-head">
+              <h2>Create User</h2>
+            </div>
+            <form id="user-form" class="form-body">
+              <div class="form-field">
+                <label class="form-label" for="user-fullname">Full Name</label>
+                <input id="user-fullname" type="text" class="form-input" placeholder="e.g. Aissatou Diallo">
+              </div>
+              <div class="form-field">
+                <label class="form-label" for="user-username">Username</label>
+                <input id="user-username" type="text" class="form-input" placeholder="e.g. aissatou">
+              </div>
+              <div class="form-field">
+                <label class="form-label" for="user-password">Initial Password</label>
+                <input id="user-password" type="password" class="form-input" placeholder="password">
+              </div>
+              <div class="form-field">
+                <label class="form-label" for="user-role">Role</label>
+                <select id="user-role" class="form-input form-select">
+                  <option value="CASHIER">Cashier</option>
+                  <option value="PHARMACIST">Pharmacist</option>
+                  <option value="ADMINISTRATOR">Administrator</option>
+                </select>
+              </div>
+              <div id="user-error" class="login-error hidden"></div>
+              <button type="submit" class="btn-primary">Create User</button>
+            </form>
+          </div>
+
+       
+          <div class="panel">
+            <div class="panel-head">
+              <h2>All Users</h2>
+              <button id="refresh-users" class="btn-secondary">Refresh</button>
+            </div>
+            <div id="user-list"></div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- LEDGER VIEW -->
+      <section id="view-ledger" class="view">
+        <div class="panel full">
+          <div class="panel-head">
+            <h2>Stock Movement Ledger</h2>
+            <div>
+              <span class="ledger-note">Append-only audit trail per BR18 / BR19</span>
+              <button id="refresh-ledger" class="btn-secondary">Refresh</button>
+            </div>
+          </div>
+          <div id="ledger-list" class="ledger-list"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+ 
+  <div id="auth-modal" class="modal-backdrop hidden">
+    <div class="modal modal-wide">
+      <header class="modal-head modal-head-warn">
+        <div>
+          <h3>Authorise Return</h3>
+          <span id="auth-modal-id" style="font-size:12px;opacity:0.8;font-family:'IBM Plex Mono',monospace"></span>
+        </div>
+        <button id="close-auth-modal" class="modal-close">×</button>
+      </header>
+      <div id="auth-modal-body" class="modal-scroll-body"></div>
+      <div class="modal-foot">
+        <div id="auth-error" class="login-error hidden" style="margin-bottom:10px"></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button id="auth-reject-btn"    class="btn-secondary" style="color:var(--danger);border-color:var(--danger)">Reject Return</button>
+          <button id="auth-authorize-btn" class="btn-primary">Authorise &amp; Apply Stock</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Receipt modal -->
+  <div id="receipt-modal" class="modal-backdrop hidden">
+    <div class="modal">
+      <header class="modal-head">
+        <h3>Sale Confirmed</h3>
+        <button id="close-receipt" class="modal-close">×</button>
+      </header>
+      <div id="receipt-content"></div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
