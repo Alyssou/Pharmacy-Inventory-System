@@ -51,8 +51,6 @@ function enterApp(user) {
   if (user.role === 'PHARMACIST') {
     populateBatchMedicineSelect();
     initBatchForm();
-  }
-  if (user.role === 'PHARMACIST' || user.role === 'ADMINISTRATOR') {
     populateAdjMedicineSelect();
   }
   loadCatalog();
@@ -83,6 +81,10 @@ function canCompleteSale() {
 }
 
 function canRegisterBatch() {
+  return state.user?.role === 'PHARMACIST';
+}
+
+function canApplyAdjustment() {
   return state.user?.role === 'PHARMACIST';
 }
 
@@ -1320,7 +1322,7 @@ $('#alert-toggle').addEventListener('click', () => {
 });
 
 
-// Stock adjustments (Pharmacist / Administrator only)
+// Stock adjustments (Pharmacist only)
 
 
 let adjBatches = [];
@@ -1429,6 +1431,10 @@ async function loadAdjustments() {
 
 $('#adj-form').addEventListener('submit', async (e) => {
   e.preventDefault();
+  if (!canApplyAdjustment()) {
+    toast('Administrators cannot apply stock adjustments', 'error');
+    return;
+  }
   const errEl = $('#adj-error');
   errEl.classList.add('hidden');
 

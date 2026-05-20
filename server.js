@@ -426,7 +426,7 @@ app.post('/api/quarantine/:returnLineId/resolve', requireRole('PHARMACIST', 'ADM
 
 // --- Stock adjustments ---
 
-app.get('/api/adjustments', requireRole('PHARMACIST', 'ADMINISTRATOR'), (req, res) => {
+app.get('/api/adjustments', requireRole('PHARMACIST'), (req, res) => {
   const rows = db.prepare(`
     SELECT sm.*, m.name AS medicine_name, b.batch_number, u.full_name AS user_name
     FROM stock_movements sm
@@ -440,7 +440,7 @@ app.get('/api/adjustments', requireRole('PHARMACIST', 'ADMINISTRATOR'), (req, re
   res.json(rows);
 });
 
-app.post('/api/adjustments', requireRole('PHARMACIST', 'ADMINISTRATOR'), (req, res) => {
+app.post('/api/adjustments', requireRole('PHARMACIST'), (req, res) => {
   const { batchId, delta, reasonCode, notes } = req.body || {};
 
   if (!batchId || delta === undefined || delta === null || !reasonCode) {

@@ -65,7 +65,7 @@ npm run reset
 ## Demo Walkthrough
 
 Demo credentials:
-- **admin / admin123** — Administrator (user management, reports, view batches; no sales, returns, or batch registration)
+- **admin / admin123** — Administrator (user management, reports, view batches; no sales, returns, batch registration, or stock adjustments)
 - **fatou / fatou123** — Pharmacist (authorize returns, stock adjustments)
 - **amadou / amadou123** — Cashier (sales, return initiation)
 
@@ -81,7 +81,7 @@ Demo credentials:
    then sets quarantine disposition (restock, quarantine, or dispose).
 6. **Batches tab** — pharmacist registers new batch intake; admin can view batch inventory only.
    Medicines flagged low-stock or expiry-soon are highlighted in the catalog alerts.
-7. **Stock Adjustments tab** — pharmacist can apply quantity corrections with a
+7. **Stock Adjustments tab** (pharmacist only) — apply quantity corrections with a
    reason code; each adjustment writes an immutable StockMovement record.
 8. **Reports tab** — four reports: sales summary, current stock levels, upcoming
    expiry, and the full audit ledger (BR18/BR19).
