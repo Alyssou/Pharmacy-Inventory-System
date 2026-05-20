@@ -859,7 +859,7 @@ function renderQuarantineList(items) {
     const canRelease = item.reason_code === 'DISPENSING_ERROR';
     const releaseBtn = canRelease
       ? `<button class="btn-quar-release" data-id="${item.return_line_id}">Release to Stock</button>`
-      : `<button class="btn-quar-release" disabled title="BR13: only DISPENSING_ERROR returns may be released">Release</button>`;
+      : `<button class="btn-quar-release" disabled title="Release not available for this return reason">Release</button>`;
 
     return `
       <div class="quar-row">
@@ -940,14 +940,14 @@ function renderBatchList(batches) {
 
   const header = `
     <div class="batch-row header">
-      <div>Medicine</div>
-      <div>Batch #</div>
-      <div>Supplier</div>
-      <div>Expiry</div>
-      <div class="num">Rcvd</div>
-      <div class="num">Avail</div>
-      <div class="num">Quar</div>
-      <div>Status</div>
+      <div class="batch-col-text">Medicine</div>
+      <div class="batch-col-text">Batch #</div>
+      <div class="batch-col-text">Supplier</div>
+      <div class="batch-col-text">Expiry</div>
+      <div class="batch-col-num">Rcvd</div>
+      <div class="batch-col-num">Avail</div>
+      <div class="batch-col-num">Quar</div>
+      <div class="batch-col-status">Status</div>
     </div>`;
 
   const rows = batches.map(b => {
@@ -963,14 +963,14 @@ function renderBatchList(batches) {
 
     return `
       <div class="batch-row ${expired ? 'row-expired' : ''}">
-        <div class="batch-medicine">${b.medicine_name}</div>
-        <div class="mono">${b.batch_number}</div>
-        <div class="batch-supplier">${b.supplier_name}</div>
-        <div class="mono">${b.expiry_date}</div>
-        <div class="num mono">${b.quantity_received}</div>
-        <div class="num mono">${b.quantity_available}</div>
-        <div class="num mono">${b.quantity_quarantine}</div>
-        <div>${statusChips.join('')}</div>
+        <div class="batch-col-text batch-medicine">${b.medicine_name}</div>
+        <div class="batch-col-text mono">${b.batch_number}</div>
+        <div class="batch-col-text batch-supplier">${b.supplier_name}</div>
+        <div class="batch-col-text mono">${b.expiry_date}</div>
+        <div class="batch-col-num mono">${b.quantity_received}</div>
+        <div class="batch-col-num mono">${b.quantity_available}</div>
+        <div class="batch-col-num mono">${b.quantity_quarantine}</div>
+        <div class="batch-col-status">${statusChips.join('')}</div>
       </div>`;
   }).join('');
 

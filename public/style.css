@@ -252,6 +252,31 @@ main { padding: 24px 28px; }
   max-width: 380px;
 }
 
+/* Admin: narrow create-user form, all-users list uses remaining width */
+.admin-layout {
+  grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+  gap: 16px;
+}
+
+.admin-create-panel {
+  max-width: 380px;
+}
+
+/* Adjustments: narrow form, history uses remaining width */
+.adjustments-layout {
+  grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+  gap: 16px;
+}
+
+.adjustments-form-panel {
+  max-width: 380px;
+}
+
+#adj-history-list {
+  flex: 1;
+  overflow-y: auto;
+}
+
 .panel {
   background: var(--panel);
   border: 1px solid var(--rule);
@@ -621,13 +646,6 @@ main { padding: 24px 28px; }
 }
 
 /* LEDGER */
-.ledger-note {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px;
-  color: var(--ink-muted);
-  margin-right: 12px;
-  font-style: italic;
-}
 
 .ledger-row {
   display: grid;
@@ -888,7 +906,15 @@ main { padding: 24px 28px; }
 
 .batch-row {
   display: grid;
-  grid-template-columns: 180px 120px 1fr 96px 52px 52px 52px 120px;
+  grid-template-columns:
+    minmax(120px, 1.2fr)
+    110px
+    minmax(90px, 1fr)
+    96px
+    64px
+    64px
+    64px
+    minmax(108px, 130px);
   gap: 12px;
   padding: 10px 20px;
   border-bottom: 1px solid var(--rule-soft);
@@ -906,9 +932,44 @@ main { padding: 24px 28px; }
   border-bottom: 1px solid var(--rule);
   position: sticky;
   top: 0;
+  min-height: 36px;
 }
 
 .batch-row.row-expired { opacity: 0.45; }
+
+.batch-col-text {
+  display: flex;
+  align-items: center;
+  min-height: 28px;
+  line-height: 1.35;
+}
+
+.batch-col-num {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-height: 28px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+.batch-row.header .batch-col-num {
+  justify-content: flex-end;
+}
+
+.batch-col-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  align-content: center;
+  gap: 4px;
+  min-height: 28px;
+}
+
+.batch-row.header .batch-col-status {
+  align-items: center;
+}
 
 .batch-medicine { font-weight: 500; }
 .batch-supplier { color: var(--ink-soft); }
@@ -1265,6 +1326,11 @@ main { padding: 24px 28px; }
 }
 
 /* ADMIN PANEL */
+
+#user-list {
+  flex: 1;
+  overflow-y: auto;
+}
 
 .user-row {
   display: grid;

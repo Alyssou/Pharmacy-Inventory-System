@@ -127,8 +127,6 @@
           <div class="panel">
             <div class="panel-head">
               <h2>Medicine Catalog</h2>
-              <span class="ledger-note" data-roles="ADMINISTRATOR">View only · search medicines in the system</span>
-              <span class="ledger-note" data-roles="PHARMACIST">Search and select a medicine to manage stock</span>
             </div>
             <input type="text" id="catalog-search" placeholder="Search by name or category..." class="search-input catalog-search-bar">
             <div id="catalog-list" class="catalog-list"></div>
@@ -225,13 +223,11 @@
 
       <!-- ADJUSTMENTS VIEW -->
       <section id="view-adjustments" class="view">
-        <div class="layout-split">
+        <div class="layout-split adjustments-layout">
 
-         
-          <div class="panel panel-accent" style="max-width:420px">
+          <div class="panel panel-accent adjustments-form-panel">
             <div class="panel-head">
               <h2>Stock Adjustment</h2>
-              <span class="ledger-note">BR17 · Pharmacist only</span>
             </div>
             <form id="adj-form" class="form-body">
 
@@ -315,10 +311,7 @@
         <div class="panel full">
           <div class="panel-head">
             <h2>Quarantine Resolution</h2>
-            <div style="display:flex;align-items:center;gap:12px">
-              <span class="ledger-note">BR13: Release permitted for DISPENSING_ERROR returns only</span>
-              <button id="refresh-quarantine" class="btn-secondary">Refresh</button>
-            </div>
+            <button id="refresh-quarantine" class="btn-secondary">Refresh</button>
           </div>
           <div id="quarantine-list"></div>
         </div>
@@ -380,7 +373,6 @@
         <div class="panel full">
           <div class="panel-head">
             <h2>Reports</h2>
-            <span class="ledger-note">Pharmacist &amp; Administrator only</span>
           </div>
 
           <div class="report-filters">
@@ -420,9 +412,9 @@
 
       <!-- ADMIN VIEW -->
       <section id="view-admin" class="view">
-        <div class="layout-split">
+        <div class="layout-split admin-layout">
 
-          <div class="panel panel-accent" style="max-width:400px">
+          <div class="panel panel-accent admin-create-panel">
             <div class="panel-head">
               <h2>Create User</h2>
             </div>
@@ -469,10 +461,7 @@
         <div class="panel full">
           <div class="panel-head">
             <h2>Stock Movement Ledger</h2>
-            <div>
-              <span class="ledger-note">Append-only audit trail per BR18 / BR19</span>
-              <button id="refresh-ledger" class="btn-secondary">Refresh</button>
-            </div>
+            <button id="refresh-ledger" class="btn-secondary">Refresh</button>
           </div>
           <div id="ledger-list" class="ledger-list"></div>
         </div>
