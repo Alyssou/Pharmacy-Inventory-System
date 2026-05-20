@@ -120,7 +120,7 @@ app.get('/api/medicines/:id/batches', (req, res) => {
 
 // --- Sales ---
 
-app.post('/api/sales', requireRole('CASHIER', 'PHARMACIST'), (req, res) => {
+app.post('/api/sales', requireRole('CASHIER'), (req, res) => {
   try {
     const { lines } = req.body;
     const cashierId = req.session.user.id;
@@ -189,7 +189,7 @@ app.get('/api/returns', (req, res) => {
   res.json(rows.map(r => ({ ...r, lines: getLines.all(r.id) })));
 });
 
-app.post('/api/returns', requireRole('CASHIER', 'PHARMACIST'), (req, res) => {
+app.post('/api/returns', requireRole('CASHIER'), (req, res) => {
   const { saleId, lines, reasonCode, notes } = req.body || {};
 
   if (!saleId || !Array.isArray(lines) || lines.length === 0 || !reasonCode) {

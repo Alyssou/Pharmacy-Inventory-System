@@ -65,14 +65,14 @@ npm run reset
 ## Demo Walkthrough
 
 Demo credentials:
-- **admin / admin123** — Administrator (catalog browse, user management, reports, view batches; no sales, returns, batch registration, or stock adjustments)
-- **fatou / fatou123** — Pharmacist (authorize returns, stock adjustments)
+- **admin / admin123** — Administrator (catalog search view-only, user management, reports, view batches)
+- **fatou / fatou123** — Pharmacist (catalog search and manage, batches, adjustments, authorize returns; no sales)
 - **amadou / amadou123** — Cashier (sales, return initiation)
 
 1. **Login** — sign in with any demo account above.
-2. **Catalog tab** (admin) or **New Sale tab** (cashier/pharmacist) — browse and search the medicine catalog. Cashiers click a medicine to add it
-   to the right-hand sale builder. Increase the quantity with `+`.
-3. Click **Complete Sale**. A receipt modal appears showing which batch each
+2. **Catalog tab** (admin: search only; pharmacist: search and manage) or **New Sale tab** (cashier) — browse medicines. Cashiers click a medicine to add it
+   to the sale builder. Pharmacists select a medicine to view batches and open batch registration or stock adjustment.
+3. **Complete Sale** (cashier only). A receipt modal appears showing which batch each
    line was drawn from. Notice that Paracetamol is drawn from `PAR-2026-A`
    first (earlier expiry) before `PAR-2026-B`, demonstrating FEFO.
 4. **Sales History tab** — see all completed sales with batch attribution. From

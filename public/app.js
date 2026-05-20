@@ -48,7 +48,7 @@ function enterApp(user) {
   $('#user-role-label').textContent = user.role;
   $('#user-name-label').textContent = user.fullName;
   applyRoleUI(user.role);
-  if (user.role === 'ADMINISTRATOR') {
+  if (user.role === 'ADMINISTRATOR' || user.role === 'PHARMACIST') {
     const catalogTab = $('[data-view="catalog"]');
     if (catalogTab) catalogTab.click();
   }
@@ -77,11 +77,22 @@ function applyRoleUI(role) {
 }
 
 function canInitiateReturn() {
-  return ['CASHIER', 'PHARMACIST'].includes(state.user?.role);
+  return state.user?.role === 'CASHIER';
 }
 
 function canCompleteSale() {
-  return ['CASHIER', 'PHARMACIST'].includes(state.user?.role);
+  return state.user?.role === 'CASHIER';
+}
+
+function canManageCatalog() {
+  return state.user?.role === 'PHARMACIST';
+}
+
+function catalogMode() {
+  const role = state.user?.role;
+  if (role === 'ADMINISTRATOR') return 'readonly';
+  if (role === 'PHARMACIST') return 'manage';
+  return 'sale';
 }
 
 function canRegisterBatch() {
@@ -156,16 +167,17 @@ async function loadCatalog() {
 }
 
 function catalogElements() {
-  const readOnly = state.user?.role === 'ADMINISTRATOR';
-  return {
-    search: readOnly ? $('#catalog-search') : $('#sale-catalog-search'),
-    list:   readOnly ? $('#catalog-list')   : $('#sale-catalog-list'),
-    readOnly
-  };
+  const mode = catalogMode();
+  if (mode === 'sale') {
+    return { search: $('#sale-catalog-search'), list: $('#sale-catalog-list'), mode };
+  }
+  return { search: $('#catalog-search'), list: $('#catalog-list'), mode };
 }
 
+let catalogSelectedMedicineId = null;
+
 function renderCatalog() {
-  const { search, list, readOnly } = catalogElements();
+  const { search, list, mode } = catalogElements();
   if (!search || !list) return;
 
   const query = search.value.toLowerCase();
@@ -176,7 +188,11 @@ function renderCatalog() {
   list.innerHTML = '';
   for (const m of filtered) {
     const row = document.createElement('div');
-    row.className = 'med-row' + (readOnly ? ' med-row-readonly' : '');
+    const selected = catalogSelectedMedicineId === m.id;
+    row.className = 'med-row';
+    if (mode === 'readonly') row.classList.add('med-row-readonly');
+    if (mode === 'manage') row.classList.add('med-row-selectable');
+    if (selected) row.classList.add('med-row-selected');
     if (m.totalAvailable === 0) row.classList.add('out-of-stock');
 
     const flags = [];
@@ -192,13 +208,75 @@ function renderCatalog() {
       <div class="med-price">${fmtFCFA(m.unit_price)}</div>
       <div class="med-stock">stock: ${m.totalAvailable}</div>
     `;
-    if (!readOnly) row.addEventListener('click', () => addToSale(m));
+    if (mode === 'sale') row.addEventListener('click', () => addToSale(m));
+    if (mode === 'manage') row.addEventListener('click', () => selectCatalogMedicine(m));
     list.appendChild(row);
   }
   if (filtered.length === 0) {
     list.innerHTML = '<div style="padding:40px 20px;color:var(--ink-muted);text-align:center;">No medicines match your search.</div>';
   }
 }
+
+async function selectCatalogMedicine(medicine) {
+  if (!canManageCatalog()) return;
+  catalogSelectedMedicineId = medicine.id;
+  renderCatalog();
+
+  $('#catalog-manage-empty').classList.add('hidden');
+  $('#catalog-manage-detail').classList.remove('hidden');
+  $('#catalog-manage-info').innerHTML = `
+    <div class="catalog-manage-name">${medicine.name}</div>
+    <div class="catalog-manage-meta">${medicine.category} &middot; ${medicine.manufacturer || '—'}</div>
+    <div class="catalog-manage-meta">${fmtFCFA(medicine.unit_price)} per ${medicine.unit_of_measure} &middot; ${medicine.totalAvailable} units available</div>
+  `;
+
+  const batchesEl = $('#catalog-manage-batches');
+  batchesEl.innerHTML = '<div style="padding:12px;color:var(--ink-muted)">Loading batches…</div>';
+
+  const res = await fetch(`/api/medicines/${encodeURIComponent(medicine.id)}/batches`);
+  if (res.status === 401) { showLogin(); return; }
+  const batches = res.ok ? await res.json() : [];
+  const today = new Date().toISOString().split('T')[0];
+
+  if (batches.length === 0) {
+    batchesEl.innerHTML = '<p class="empty-msg">No batches registered yet.</p>';
+    return;
+  }
+
+  batchesEl.innerHTML = batches.map(b => {
+    const expired = b.expiry_date < today;
+    return `
+      <div class="catalog-batch-row ${expired ? 'row-expired' : ''}">
+        <span class="mono">${b.batch_number}</span>
+        <span>avail ${b.quantity_available}</span>
+        <span>exp ${b.expiry_date}</span>
+      </div>
+    `;
+  }).join('');
+}
+
+function navigateToBatchForMedicine(medicineId) {
+  const tab = $('[data-view="batches"]');
+  if (tab) tab.click();
+  $('#batch-medicine').value = medicineId;
+  initBatchForm();
+  $('#batch-number').focus();
+}
+
+function navigateToAdjustmentForMedicine(medicineId) {
+  const tab = $('[data-view="adjustments"]');
+  if (tab) tab.click();
+  $('#adj-medicine').value = medicineId;
+  $('#adj-medicine').dispatchEvent(new Event('change'));
+}
+
+$('#catalog-btn-batch')?.addEventListener('click', () => {
+  if (catalogSelectedMedicineId) navigateToBatchForMedicine(catalogSelectedMedicineId);
+});
+
+$('#catalog-btn-adj')?.addEventListener('click', () => {
+  if (catalogSelectedMedicineId) navigateToAdjustmentForMedicine(catalogSelectedMedicineId);
+});
 
 $('#catalog-search').addEventListener('input', renderCatalog);
 $('#sale-catalog-search').addEventListener('input', renderCatalog);
@@ -299,7 +377,7 @@ $('#sale-lines').addEventListener('click', (e) => {
 
 $('#confirm-sale').addEventListener('click', async () => {
   if (!canCompleteSale()) {
-    toast('Administrators cannot complete sales', 'error');
+    toast('Only cashiers can complete sales', 'error');
     return;
   }
   const payload = {
@@ -519,7 +597,7 @@ $('#return-sale-id').addEventListener('keydown', (e) => {
 
 $('#return-submit').addEventListener('click', async () => {
   if (!canInitiateReturn()) {
-    toast('Administrators cannot initiate returns', 'error');
+    toast('Only cashiers can initiate returns', 'error');
     return;
   }
   const errEl = $('#return-error');

@@ -53,8 +53,8 @@
         </div>
       </div>
       <nav class="tabs" id="main-tabs">
-        <button class="tab active" data-view="sale" data-roles="CASHIER,PHARMACIST">New Sale</button>
-        <button class="tab hidden" data-view="catalog" data-roles="ADMINISTRATOR">Catalog</button>
+        <button class="tab active" data-view="sale" data-roles="CASHIER">New Sale</button>
+        <button class="tab hidden" data-view="catalog" data-roles="PHARMACIST,ADMINISTRATOR">Catalog</button>
         <button class="tab" data-view="history">Sales History</button>
         <button class="tab" data-view="ledger">Audit Ledger</button>
         <button class="tab hidden" data-view="batches" data-roles="PHARMACIST,ADMINISTRATOR">Batches</button>
@@ -121,15 +121,36 @@
         <div id="toast-container"></div>
       </section>
 
-      <!-- CATALOG VIEW (Administrator — read-only) -->
+      <!-- CATALOG VIEW (Pharmacist — manage; Administrator — read-only) -->
       <section id="view-catalog" class="view">
-        <div class="panel full">
-          <div class="panel-head">
-            <h2>Medicine Catalog</h2>
-            <span class="ledger-note">View only · search medicines in the system</span>
+        <div class="layout-split catalog-layout">
+          <div class="panel">
+            <div class="panel-head">
+              <h2>Medicine Catalog</h2>
+              <span class="ledger-note" data-roles="ADMINISTRATOR">View only · search medicines in the system</span>
+              <span class="ledger-note" data-roles="PHARMACIST">Search and select a medicine to manage stock</span>
+            </div>
+            <input type="text" id="catalog-search" placeholder="Search by name or category..." class="search-input catalog-search-bar">
+            <div id="catalog-list" class="catalog-list"></div>
           </div>
-          <input type="text" id="catalog-search" placeholder="Search by name or category..." class="search-input catalog-search-bar">
-          <div id="catalog-list" class="catalog-list"></div>
+
+          <div class="panel panel-accent catalog-manage-panel" data-roles="PHARMACIST" style="max-width:440px">
+            <div class="panel-head">
+              <h2>Manage Medicine</h2>
+            </div>
+            <div id="catalog-manage-empty" class="catalog-manage-empty">
+              <p class="empty-msg">Select a medicine from the catalog to view batches and manage stock.</p>
+            </div>
+            <div id="catalog-manage-detail" class="hidden">
+              <div id="catalog-manage-info" class="catalog-manage-info"></div>
+              <div class="catalog-manage-actions">
+                <button type="button" id="catalog-btn-batch" class="btn-primary">Register Batch</button>
+                <button type="button" id="catalog-btn-adj" class="btn-secondary">Stock Adjustment</button>
+              </div>
+              <div class="catalog-manage-batches-label">Batches for this medicine</div>
+              <div id="catalog-manage-batches" class="catalog-manage-batches"></div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -140,7 +161,7 @@
             <h2>Sales History</h2>
             <button id="refresh-history" class="btn-secondary">Refresh</button>
           </div>
-          <div id="history-list" class="history-list" data-return-role="CASHIER,PHARMACIST"></div>
+          <div id="history-list" class="history-list" data-return-role="CASHIER"></div>
         </div>
       </section>
 
@@ -149,7 +170,7 @@
         <div class="layout-split">
 
 
-          <div class="panel panel-accent" style="max-width:440px" data-roles="CASHIER,PHARMACIST">
+          <div class="panel panel-accent" style="max-width:440px" data-roles="CASHIER">
             <div class="panel-head">
               <h2>Initiate Return</h2>
             </div>
