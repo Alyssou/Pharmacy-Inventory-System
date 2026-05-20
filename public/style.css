@@ -306,7 +306,14 @@ main { padding: 24px 28px; }
 }
 
 .med-row:hover { background: var(--bg); }
+.med-row.med-row-readonly { cursor: default; }
+.med-row.med-row-readonly:hover { background: transparent; }
 .med-row:last-child { border-bottom: none; }
+
+.catalog-search-bar {
+  margin: 0 20px 12px;
+  max-width: 480px;
+}
 
 .med-name {
   font-weight: 500;

@@ -54,6 +54,7 @@
       </div>
       <nav class="tabs" id="main-tabs">
         <button class="tab active" data-view="sale" data-roles="CASHIER,PHARMACIST">New Sale</button>
+        <button class="tab hidden" data-view="catalog" data-roles="ADMINISTRATOR">Catalog</button>
         <button class="tab" data-view="history">Sales History</button>
         <button class="tab" data-view="ledger">Audit Ledger</button>
         <button class="tab hidden" data-view="batches" data-roles="PHARMACIST,ADMINISTRATOR">Batches</button>
@@ -93,9 +94,9 @@
           <div class="panel">
             <div class="panel-head">
               <h2>Medicine Catalog</h2>
-              <input type="text" id="catalog-search" placeholder="Search by name..." class="search-input">
+              <input type="text" id="sale-catalog-search" placeholder="Search by name..." class="search-input">
             </div>
-            <div id="catalog-list" class="catalog-list"></div>
+            <div id="sale-catalog-list" class="catalog-list"></div>
           </div>
 
           
@@ -118,6 +119,18 @@
 
         </div>
         <div id="toast-container"></div>
+      </section>
+
+      <!-- CATALOG VIEW (Administrator — read-only) -->
+      <section id="view-catalog" class="view">
+        <div class="panel full">
+          <div class="panel-head">
+            <h2>Medicine Catalog</h2>
+            <span class="ledger-note">View only · search medicines in the system</span>
+          </div>
+          <input type="text" id="catalog-search" placeholder="Search by name or category..." class="search-input catalog-search-bar">
+          <div id="catalog-list" class="catalog-list"></div>
+        </div>
       </section>
 
       <!-- HISTORY VIEW -->

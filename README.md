@@ -65,12 +65,12 @@ npm run reset
 ## Demo Walkthrough
 
 Demo credentials:
-- **admin / admin123** — Administrator (user management, reports, view batches; no sales, returns, batch registration, or stock adjustments)
+- **admin / admin123** — Administrator (catalog browse, user management, reports, view batches; no sales, returns, batch registration, or stock adjustments)
 - **fatou / fatou123** — Pharmacist (authorize returns, stock adjustments)
 - **amadou / amadou123** — Cashier (sales, return initiation)
 
 1. **Login** — sign in with any demo account above.
-2. **New Sale tab** — the catalog shows 5 medicines. Click any one to add it
+2. **Catalog tab** (admin) or **New Sale tab** (cashier/pharmacist) — browse and search the medicine catalog. Cashiers click a medicine to add it
    to the right-hand sale builder. Increase the quantity with `+`.
 3. Click **Complete Sale**. A receipt modal appears showing which batch each
    line was drawn from. Notice that Paracetamol is drawn from `PAR-2026-A`

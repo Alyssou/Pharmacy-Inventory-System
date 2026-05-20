@@ -48,6 +48,10 @@ function enterApp(user) {
   $('#user-role-label').textContent = user.role;
   $('#user-name-label').textContent = user.fullName;
   applyRoleUI(user.role);
+  if (user.role === 'ADMINISTRATOR') {
+    const catalogTab = $('[data-view="catalog"]');
+    if (catalogTab) catalogTab.click();
+  }
   if (user.role === 'PHARMACIST') {
     populateBatchMedicineSelect();
     initBatchForm();
@@ -130,6 +134,7 @@ $$('.tab').forEach(tab => {
     tab.classList.add('active');
     const view = tab.dataset.view;
     $(`#view-${view}`).classList.add('active');
+    if (view === 'catalog')     loadCatalog();
     if (view === 'history')     loadHistory();
     if (view === 'ledger')      loadLedger();
     if (view === 'batches')     loadBatches();
@@ -150,17 +155,28 @@ async function loadCatalog() {
   renderCatalog();
 }
 
+function catalogElements() {
+  const readOnly = state.user?.role === 'ADMINISTRATOR';
+  return {
+    search: readOnly ? $('#catalog-search') : $('#sale-catalog-search'),
+    list:   readOnly ? $('#catalog-list')   : $('#sale-catalog-list'),
+    readOnly
+  };
+}
+
 function renderCatalog() {
-  const query = $('#catalog-search').value.toLowerCase();
+  const { search, list, readOnly } = catalogElements();
+  if (!search || !list) return;
+
+  const query = search.value.toLowerCase();
   const filtered = state.medicines.filter(m =>
     m.name.toLowerCase().includes(query) ||
     m.category.toLowerCase().includes(query)
   );
-  const list = $('#catalog-list');
   list.innerHTML = '';
   for (const m of filtered) {
     const row = document.createElement('div');
-    row.className = 'med-row';
+    row.className = 'med-row' + (readOnly ? ' med-row-readonly' : '');
     if (m.totalAvailable === 0) row.classList.add('out-of-stock');
 
     const flags = [];
@@ -176,7 +192,7 @@ function renderCatalog() {
       <div class="med-price">${fmtFCFA(m.unit_price)}</div>
       <div class="med-stock">stock: ${m.totalAvailable}</div>
     `;
-    row.addEventListener('click', () => addToSale(m));
+    if (!readOnly) row.addEventListener('click', () => addToSale(m));
     list.appendChild(row);
   }
   if (filtered.length === 0) {
@@ -185,6 +201,7 @@ function renderCatalog() {
 }
 
 $('#catalog-search').addEventListener('input', renderCatalog);
+$('#sale-catalog-search').addEventListener('input', renderCatalog);
 
 // Sale builder
 
