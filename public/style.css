@@ -238,6 +238,20 @@ main { padding: 24px 28px; }
   grid-template-columns: 1fr;
 }
 
+/* Batches: narrow register form, inventory uses remaining width */
+.batches-layout {
+  grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+  gap: 16px;
+}
+
+.batches-layout:has(> .panel.hidden) {
+  grid-template-columns: 1fr;
+}
+
+.batches-register-panel {
+  max-width: 380px;
+}
+
 .panel {
   background: var(--panel);
   border: 1px solid var(--rule);
