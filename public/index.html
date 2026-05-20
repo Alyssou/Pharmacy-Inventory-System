@@ -56,7 +56,7 @@
         <button class="tab active" data-view="sale" data-roles="CASHIER,PHARMACIST">New Sale</button>
         <button class="tab" data-view="history">Sales History</button>
         <button class="tab" data-view="ledger">Audit Ledger</button>
-        <button class="tab hidden" data-view="batches" data-roles="PHARMACIST,ADMINISTRATOR">Batch Register</button>
+        <button class="tab hidden" data-view="batches" data-roles="PHARMACIST,ADMINISTRATOR">Batches</button>
         <button class="tab hidden" data-view="returns"     data-roles="CASHIER,PHARMACIST">Returns</button>
         <button class="tab hidden" data-view="quarantine"   data-roles="PHARMACIST,ADMINISTRATOR">Quarantine</button>
         <button class="tab hidden" data-view="adjustments" data-roles="PHARMACIST,ADMINISTRATOR">Adjustments</button>
@@ -294,7 +294,7 @@
       <section id="view-batches" class="view">
         <div class="layout-split">
 
-          <div class="panel panel-accent" style="max-width:420px">
+          <div class="panel panel-accent" style="max-width:420px" data-roles="PHARMACIST">
             <div class="panel-head">
               <h2>Register New Batch</h2>
             </div>

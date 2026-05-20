@@ -48,10 +48,12 @@ function enterApp(user) {
   $('#user-role-label').textContent = user.role;
   $('#user-name-label').textContent = user.fullName;
   applyRoleUI(user.role);
-  if (user.role === 'PHARMACIST' || user.role === 'ADMINISTRATOR') {
+  if (user.role === 'PHARMACIST') {
     populateBatchMedicineSelect();
-    populateAdjMedicineSelect();
     initBatchForm();
+  }
+  if (user.role === 'PHARMACIST' || user.role === 'ADMINISTRATOR') {
+    populateAdjMedicineSelect();
   }
   loadCatalog();
   loadAlerts();
@@ -78,6 +80,10 @@ function canInitiateReturn() {
 
 function canCompleteSale() {
   return ['CASHIER', 'PHARMACIST'].includes(state.user?.role);
+}
+
+function canRegisterBatch() {
+  return state.user?.role === 'PHARMACIST';
 }
 
 $('#login-form').addEventListener('submit', async (e) => {
@@ -896,6 +902,10 @@ function initBatchForm() {
 
 $('#batch-form').addEventListener('submit', async (e) => {
   e.preventDefault();
+  if (!canRegisterBatch()) {
+    toast('Administrators cannot register batches', 'error');
+    return;
+  }
   const errEl = $('#batch-error');
   errEl.classList.add('hidden');
 

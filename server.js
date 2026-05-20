@@ -498,7 +498,7 @@ app.get('/api/batches', requireRole('PHARMACIST', 'ADMINISTRATOR'), (req, res) =
   res.json(rows);
 });
 
-app.post('/api/batches', requireRole('PHARMACIST', 'ADMINISTRATOR'), (req, res) => {
+app.post('/api/batches', requireRole('PHARMACIST'), (req, res) => {
   const { medicineId, batchNumber, supplierName, intakeDate, expiryDate, quantityReceived } = req.body || {};
 
   if (!medicineId || !batchNumber || !supplierName || !intakeDate || !expiryDate || !quantityReceived) {

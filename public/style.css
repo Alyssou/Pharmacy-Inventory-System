@@ -234,6 +234,10 @@ main { padding: 24px 28px; }
   min-height: calc(100vh - 140px);
 }
 
+.layout-split:has(> .panel.hidden) {
+  grid-template-columns: 1fr;
+}
+
 .panel {
   background: var(--panel);
   border: 1px solid var(--rule);
