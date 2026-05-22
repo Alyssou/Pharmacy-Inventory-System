@@ -660,18 +660,18 @@ const STATUS_CHIP = {
 };
 
 const REASON_LABEL = {
-  DISPENSING_ERROR: 'Dispensing error',
-  PATIENT_DECLINED: 'Patient declined',
-  NEAR_EXPIRY:      'Near expiry',
-  OTHER:            'Other'
+  DISPENSING_ERROR:   'Dispensing error',
+  DEFECTIVE:          'Defective product',
+  EXPIRED_AT_PURCHASE:'Expired at purchase',
+  DISPOSAL_ONLY:      'Disposal only'
 };
 
 // Default disposition per reason code (pharmacist guidance)
 const DEFAULT_DISP = {
-  DISPENSING_ERROR: 'RESTOCK',
-  PATIENT_DECLINED: 'DISPOSE',
-  NEAR_EXPIRY:      'QUARANTINE',
-  OTHER:            'DISPOSE'
+  DISPENSING_ERROR:    'RESTOCK',
+  DEFECTIVE:           'QUARANTINE',
+  EXPIRED_AT_PURCHASE: 'QUARANTINE',
+  DISPOSAL_ONLY:       'DISPOSE'
 };
 
 // In-memory cache of loaded returns for the auth modal
@@ -1582,6 +1582,138 @@ $('#adj-form').addEventListener('submit', async (e) => {
 });
 
 $('#refresh-adjustments').addEventListener('click', loadAdjustments);
+
+// Medicine catalog management (Pharmacist only)
+
+let medicineFormMode = null; // 'create' | 'edit'
+let medicineFormId   = null;
+
+function showMedicineForm(mode, medicine = null) {
+  medicineFormMode = mode;
+  medicineFormId   = medicine?.id || null;
+
+  $('#catalog-manage-empty').classList.add('hidden');
+  $('#catalog-manage-detail').classList.add('hidden');
+  $('#catalog-form-panel').classList.remove('hidden');
+
+  $('#medicine-form-title').textContent  = mode === 'edit' ? `Edit: ${medicine.name}` : 'New Medicine';
+  $('#medicine-form-submit').textContent = mode === 'edit' ? 'Save Changes' : 'Register Medicine';
+  $('#medicine-form-error').classList.add('hidden');
+
+  if (mode === 'edit' && medicine) {
+    $('#med-name').value        = medicine.name;
+    $('#med-category').value    = medicine.category;
+    $('#med-manufacturer').value= medicine.manufacturer || '';
+    $('#med-uom').value         = medicine.unit_of_measure;
+    $('#med-price').value       = medicine.unit_price;
+    $('#med-rx').checked        = !!medicine.prescription_required;
+    $('#med-threshold').value   = medicine.low_stock_threshold;
+  } else {
+    $('#medicine-form').reset();
+  }
+}
+
+function hideMedicineForm() {
+  $('#catalog-form-panel').classList.add('hidden');
+  medicineFormMode = null;
+  medicineFormId   = null;
+  if (catalogSelectedMedicineId) {
+    $('#catalog-manage-detail').classList.remove('hidden');
+  } else {
+    $('#catalog-manage-empty').classList.remove('hidden');
+  }
+}
+
+$('#catalog-add-btn')?.addEventListener('click', () => {
+  catalogSelectedMedicineId = null;
+  renderCatalog();
+  showMedicineForm('create');
+});
+
+$('#catalog-btn-edit')?.addEventListener('click', () => {
+  const medicine = state.medicines.find(m => m.id === catalogSelectedMedicineId);
+  if (medicine) showMedicineForm('edit', medicine);
+});
+
+$('#catalog-btn-discontinue')?.addEventListener('click', async () => {
+  const medicine = state.medicines.find(m => m.id === catalogSelectedMedicineId);
+  if (!medicine) return;
+  if (!confirm(`Discontinue "${medicine.name}"? It will no longer appear in sales or batch registration.`)) return;
+  try {
+    const res = await fetch(`/api/medicines/${encodeURIComponent(medicine.id)}/discontinue`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }
+    });
+    if (res.status === 401) { showLogin(); return; }
+    const data = await res.json();
+    if (!data.ok) { toast(data.error, 'error'); return; }
+    toast(`"${medicine.name}" discontinued`, 'info');
+    catalogSelectedMedicineId = null;
+    $('#catalog-manage-detail').classList.add('hidden');
+    $('#catalog-manage-empty').classList.remove('hidden');
+    await loadCatalog();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+});
+
+$('#medicine-form-cancel')?.addEventListener('click', hideMedicineForm);
+
+$('#medicine-form')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errEl = $('#medicine-form-error');
+  errEl.classList.add('hidden');
+
+  const payload = {
+    name:                 $('#med-name').value.trim(),
+    category:             $('#med-category').value.trim(),
+    manufacturer:         $('#med-manufacturer').value.trim() || null,
+    unitOfMeasure:        $('#med-uom').value.trim(),
+    unitPrice:            parseFloat($('#med-price').value),
+    prescriptionRequired: $('#med-rx').checked,
+    lowStockThreshold:    parseInt($('#med-threshold').value, 10)
+  };
+
+  if (!payload.name || !payload.category || !payload.unitOfMeasure) {
+    errEl.textContent = 'Name, category, and unit of measure are required.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+
+  const url    = medicineFormMode === 'edit'
+    ? `/api/medicines/${encodeURIComponent(medicineFormId)}`
+    : '/api/medicines';
+  const method = medicineFormMode === 'edit' ? 'PUT' : 'POST';
+
+  try {
+    const res = await fetch(url, {
+      method, headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (res.status === 401) { showLogin(); return; }
+    const data = await res.json();
+    if (!data.ok) {
+      errEl.textContent = data.error;
+      errEl.classList.remove('hidden');
+      return;
+    }
+    const verb = medicineFormMode === 'edit' ? 'updated' : 'registered';
+    toast(`"${data.medicine.name}" ${verb}`, 'success');
+    catalogSelectedMedicineId = data.medicine.id;
+    hideMedicineForm();
+    await loadCatalog();
+    // Keep detail panel in sync with fresh data
+    const fresh = state.medicines.find(m => m.id === catalogSelectedMedicineId);
+    if (fresh) selectCatalogMedicine(fresh);
+    // Refresh medicine dropdowns used in batch & adjustment forms
+    if (state.user?.role === 'PHARMACIST') {
+      populateBatchMedicineSelect();
+      populateAdjMedicineSelect();
+    }
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.classList.remove('hidden');
+  }
+});
 
 // Init — check session before rendering anything
 

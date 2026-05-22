@@ -70,7 +70,7 @@ db.exec(`
     initiated_at  TEXT NOT NULL,
     authorized_at TEXT,
     reason_code   TEXT NOT NULL CHECK (reason_code IN (
-                    'DISPENSING_ERROR','PATIENT_DECLINED','NEAR_EXPIRY','OTHER'
+                    'DISPENSING_ERROR','DEFECTIVE','EXPIRED_AT_PURCHASE','DISPOSAL_ONLY'
                   )),
     status        TEXT NOT NULL CHECK (status IN (
                     'PENDING_AUTH','AUTHORIZED','REJECTED'
@@ -106,6 +106,48 @@ db.exec(`
 
 // Add quarantine resolution column if it doesn't exist yet
 try { db.exec('ALTER TABLE return_lines ADD COLUMN quarantine_resolution TEXT'); } catch (_) {}
+
+// Migrate returns table if it still has the old reason_code constraint
+const returnsSchema = db.prepare(
+  "SELECT sql FROM sqlite_master WHERE type='table' AND name='returns'"
+).get();
+if (returnsSchema?.sql.includes('PATIENT_DECLINED')) {
+  db.exec('PRAGMA foreign_keys = OFF');
+  db.exec('ALTER TABLE returns RENAME TO _returns_old');
+  db.exec(`
+    CREATE TABLE returns (
+      id            TEXT PRIMARY KEY,
+      sale_id       TEXT NOT NULL REFERENCES sales(id),
+      cashier_id    TEXT NOT NULL REFERENCES users(id),
+      pharmacist_id TEXT REFERENCES users(id),
+      initiated_at  TEXT NOT NULL,
+      authorized_at TEXT,
+      reason_code   TEXT NOT NULL CHECK (reason_code IN (
+                      'DISPENSING_ERROR','DEFECTIVE','EXPIRED_AT_PURCHASE','DISPOSAL_ONLY'
+                    )),
+      status        TEXT NOT NULL CHECK (status IN (
+                      'PENDING_AUTH','AUTHORIZED','REJECTED'
+                    )),
+      notes         TEXT
+    )
+  `);
+  // Copy rows, mapping old codes to the closest new equivalents
+  db.exec(`
+    INSERT INTO returns
+    SELECT id, sale_id, cashier_id, pharmacist_id, initiated_at, authorized_at,
+      CASE reason_code
+        WHEN 'PATIENT_DECLINED' THEN 'DISPOSAL_ONLY'
+        WHEN 'NEAR_EXPIRY'      THEN 'EXPIRED_AT_PURCHASE'
+        WHEN 'OTHER'            THEN 'DISPOSAL_ONLY'
+        ELSE reason_code
+      END,
+      status, notes
+    FROM _returns_old
+  `);
+  db.exec('DROP TABLE _returns_old');
+  db.exec('PRAGMA foreign_keys = ON');
+  console.log('returns table migrated to updated reason codes.');
+}
 
 
 db.transaction = (fn) => {

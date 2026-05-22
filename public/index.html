@@ -125,6 +125,7 @@
           <div class="panel">
             <div class="panel-head">
               <h2>Medicine Catalog</h2>
+              <button id="catalog-add-btn" class="btn-secondary" data-roles="PHARMACIST" style="font-size:12px;padding:6px 12px">+ Add Medicine</button>
             </div>
             <input type="text" id="catalog-search" placeholder="Search by name or category..." class="search-input catalog-search-bar">
             <div id="catalog-list" class="catalog-list"></div>
@@ -142,9 +143,51 @@
               <div class="catalog-manage-actions">
                 <button type="button" id="catalog-btn-batch" class="btn-primary">Register Batch</button>
                 <button type="button" id="catalog-btn-adj" class="btn-secondary">Stock Adjustment</button>
+                <button type="button" id="catalog-btn-edit" class="btn-secondary">Edit</button>
+                <button type="button" id="catalog-btn-discontinue" class="btn-secondary" style="color:var(--danger);border-color:var(--danger)">Discontinue</button>
               </div>
               <div class="catalog-manage-batches-label">Batches for this medicine</div>
               <div id="catalog-manage-batches" class="catalog-manage-batches"></div>
+            </div>
+            <div id="catalog-form-panel" class="hidden" style="padding:4px 0">
+              <div id="medicine-form-title" class="catalog-manage-name" style="margin-bottom:14px;font-size:15px"></div>
+              <form id="medicine-form" class="form-body" style="gap:10px">
+                <div class="form-field">
+                  <label class="form-label" for="med-name">Name</label>
+                  <input id="med-name" type="text" class="form-input" placeholder="e.g. Paracetamol 500mg" required>
+                </div>
+                <div class="form-field">
+                  <label class="form-label" for="med-category">Category</label>
+                  <input id="med-category" type="text" class="form-input" placeholder="e.g. Analgesic">
+                </div>
+                <div class="form-field">
+                  <label class="form-label" for="med-manufacturer">Manufacturer (optional)</label>
+                  <input id="med-manufacturer" type="text" class="form-input" placeholder="e.g. Laborex">
+                </div>
+                <div class="form-field">
+                  <label class="form-label" for="med-uom">Unit of Measure</label>
+                  <input id="med-uom" type="text" class="form-input" placeholder="e.g. tablet, capsule, ml">
+                </div>
+                <div class="form-row-2">
+                  <div class="form-field">
+                    <label class="form-label" for="med-price">Unit Price (FCFA)</label>
+                    <input id="med-price" type="number" class="form-input" min="0" step="0.01" placeholder="e.g. 150">
+                  </div>
+                  <div class="form-field">
+                    <label class="form-label" for="med-threshold">Low Stock Threshold</label>
+                    <input id="med-threshold" type="number" class="form-input" min="0" placeholder="e.g. 50">
+                  </div>
+                </div>
+                <div class="form-field" style="flex-direction:row;align-items:center;gap:10px">
+                  <input id="med-rx" type="checkbox" style="width:auto;margin:0">
+                  <label class="form-label" for="med-rx" style="margin:0">Prescription required (℞)</label>
+                </div>
+                <div id="medicine-form-error" class="login-error hidden"></div>
+                <div style="display:flex;gap:8px">
+                  <button type="submit" id="medicine-form-submit" class="btn-primary">Save</button>
+                  <button type="button" id="medicine-form-cancel" class="btn-secondary">Cancel</button>
+                </div>
+              </form>
             </div>
           </div>
         </div>
@@ -190,10 +233,10 @@
                 <div class="form-field" style="margin-top:12px">
                   <label class="form-label" for="return-reason">Reason</label>
                   <select id="return-reason" class="form-input form-select">
-                    <option value="DISPENSING_ERROR">Dispensing error</option>
-                    <option value="PATIENT_DECLINED">Patient declined / changed mind</option>
-                    <option value="NEAR_EXPIRY">Near expiry returned by patient</option>
-                    <option value="OTHER">Other</option>
+                    <option value="DISPENSING_ERROR">Dispensing error (wrong medicine / dose)</option>
+                    <option value="DEFECTIVE">Defective product</option>
+                    <option value="EXPIRED_AT_PURCHASE">Expired at time of purchase</option>
+                    <option value="DISPOSAL_ONLY">Disposal only (no replacement)</option>
                   </select>
                 </div>
                 <div class="form-field">

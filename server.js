@@ -118,6 +118,63 @@ app.get('/api/medicines/:id/batches', (req, res) => {
   res.json(batches);
 });
 
+app.post('/api/medicines', requireRole('PHARMACIST'), (req, res) => {
+  const { name, category, manufacturer, unitOfMeasure, unitPrice, prescriptionRequired, lowStockThreshold } = req.body || {};
+  if (!name || !category || !unitOfMeasure || unitPrice === undefined || lowStockThreshold === undefined) {
+    return res.status(400).json({ ok: false, error: 'name, category, unitOfMeasure, unitPrice, and lowStockThreshold are required' });
+  }
+  const price = parseFloat(unitPrice);
+  const threshold = parseInt(lowStockThreshold, 10);
+  if (isNaN(price) || price < 0) return res.status(400).json({ ok: false, error: 'unitPrice must be a non-negative number' });
+  if (!Number.isInteger(threshold) || threshold < 0) return res.status(400).json({ ok: false, error: 'lowStockThreshold must be a non-negative integer' });
+  const duplicate = db.prepare('SELECT id FROM medicines WHERE LOWER(name) = LOWER(?)').get(name.trim());
+  if (duplicate) return res.status(400).json({ ok: false, error: `A medicine named "${name}" already exists` });
+  try {
+    const id = generateId('MED');
+    db.prepare(`
+      INSERT INTO medicines (id, name, category, manufacturer, unit_of_measure, unit_price, prescription_required, low_stock_threshold, active)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+    `).run(id, name.trim(), category.trim(), manufacturer?.trim() || null, unitOfMeasure.trim(), price, prescriptionRequired ? 1 : 0, threshold);
+    res.json({ ok: true, medicine: medicineRepo.findById(id) });
+  } catch (err) {
+    res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
+app.put('/api/medicines/:id', requireRole('PHARMACIST'), (req, res) => {
+  const medicine = medicineRepo.findById(req.params.id);
+  if (!medicine) return res.status(404).json({ ok: false, error: 'Medicine not found' });
+  if (!medicine.active) return res.status(400).json({ ok: false, error: 'Cannot edit a discontinued medicine' });
+  const { name, category, manufacturer, unitOfMeasure, unitPrice, prescriptionRequired, lowStockThreshold } = req.body || {};
+  if (!name || !category || !unitOfMeasure || unitPrice === undefined || lowStockThreshold === undefined) {
+    return res.status(400).json({ ok: false, error: 'name, category, unitOfMeasure, unitPrice, and lowStockThreshold are required' });
+  }
+  const price = parseFloat(unitPrice);
+  const threshold = parseInt(lowStockThreshold, 10);
+  if (isNaN(price) || price < 0) return res.status(400).json({ ok: false, error: 'unitPrice must be non-negative' });
+  if (!Number.isInteger(threshold) || threshold < 0) return res.status(400).json({ ok: false, error: 'lowStockThreshold must be a non-negative integer' });
+  const conflict = db.prepare('SELECT id FROM medicines WHERE LOWER(name) = LOWER(?) AND id != ?').get(name.trim(), req.params.id);
+  if (conflict) return res.status(400).json({ ok: false, error: `Another medicine named "${name}" already exists` });
+  try {
+    db.prepare(`
+      UPDATE medicines SET name = ?, category = ?, manufacturer = ?, unit_of_measure = ?,
+        unit_price = ?, prescription_required = ?, low_stock_threshold = ?
+      WHERE id = ?
+    `).run(name.trim(), category.trim(), manufacturer?.trim() || null, unitOfMeasure.trim(), price, prescriptionRequired ? 1 : 0, threshold, req.params.id);
+    res.json({ ok: true, medicine: medicineRepo.findById(req.params.id) });
+  } catch (err) {
+    res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
+app.patch('/api/medicines/:id/discontinue', requireRole('PHARMACIST'), (req, res) => {
+  const medicine = medicineRepo.findById(req.params.id);
+  if (!medicine) return res.status(404).json({ ok: false, error: 'Medicine not found' });
+  if (!medicine.active) return res.status(400).json({ ok: false, error: 'Medicine is already discontinued' });
+  db.prepare('UPDATE medicines SET active = 0 WHERE id = ?').run(req.params.id);
+  res.json({ ok: true, medicine: { ...medicine, active: 0 } });
+});
+
 // --- Sales ---
 
 app.post('/api/sales', requireRole('CASHIER'), (req, res) => {
@@ -205,7 +262,7 @@ app.post('/api/returns', requireRole('CASHIER'), (req, res) => {
     return res.status(400).json({ ok: false, error: 'Returns must be initiated within 24 hours of the sale' });
   }
 
-  const validCodes = ['DISPENSING_ERROR', 'PATIENT_DECLINED', 'NEAR_EXPIRY', 'OTHER'];
+  const validCodes = ['DISPENSING_ERROR', 'DEFECTIVE', 'EXPIRED_AT_PURCHASE', 'DISPOSAL_ONLY'];
   if (!validCodes.includes(reasonCode)) {
     return res.status(400).json({ ok: false, error: 'Invalid reason code' });
   }
@@ -301,6 +358,7 @@ app.post('/api/returns/:id/authorize', requireRole('PHARMACIST', 'ADMINISTRATOR'
     }
   }
 
+  let replaceSaleId = null;
   try {
     db.transaction(() => {
       for (const d of dispositions) {
@@ -335,9 +393,39 @@ app.post('/api/returns/:id/authorize', requireRole('PHARMACIST', 'ADMINISTRATOR'
       db.prepare(`
         UPDATE returns SET status = 'AUTHORIZED', pharmacist_id = ?, authorized_at = ? WHERE id = ?
       `).run(pharmacistId, now, ret.id);
+
+      // For qualifying reason codes, create a free replacement sale via FEFO
+      const REPLACEMENT_REASONS = ['DISPENSING_ERROR', 'DEFECTIVE', 'EXPIRED_AT_PURCHASE'];
+      if (REPLACEMENT_REASONS.includes(ret.reason_code)) {
+        const replaceLines = [];
+        for (const line of returnLines) {
+          const candidate = batchRepo.findFEFOCandidate(line.medicine_id, line.quantity);
+          if (candidate) replaceLines.push({ line, candidate });
+        }
+        if (replaceLines.length > 0) {
+          replaceSaleId = generateId('SALE');
+          db.prepare(`
+            INSERT INTO sales (id, cashier_id, timestamp, total_amount, status, originating_return_id)
+            VALUES (?, ?, ?, 0, 'COMPLETED', ?)
+          `).run(replaceSaleId, pharmacistId, now, ret.id);
+          for (const { line, candidate } of replaceLines) {
+            const slId = generateId('SL');
+            db.prepare(`
+              INSERT INTO sale_lines (id, sale_id, medicine_id, batch_id, quantity, unit_price_at_sale)
+              VALUES (?, ?, ?, ?, ?, 0)
+            `).run(slId, replaceSaleId, line.medicine_id, candidate.id, line.quantity);
+            batchRepo.decrementAvailable(candidate.id, line.quantity);
+            db.prepare(`
+              INSERT INTO stock_movements
+                (id, batch_id, user_id, timestamp, type, quantity_delta, reason_code, sale_id, return_id)
+              VALUES (?, ?, ?, ?, 'SALE', ?, 'REPLACEMENT', ?, ?)
+            `).run(generateId('MV'), candidate.id, pharmacistId, now, -line.quantity, replaceSaleId, ret.id);
+          }
+        }
+      }
     })();
 
-    res.json({ ok: true, status: 'AUTHORIZED' });
+    res.json({ ok: true, status: 'AUTHORIZED', replaceSaleId });
   } catch (err) {
     res.status(400).json({ ok: false, error: err.message });
   }
