@@ -26,7 +26,8 @@ app.use(session({
   secret: 'pharmacy-cs2712-prototype',
   resave: false,
   saveUninitialized: false,
-  cookie: { httpOnly: true, maxAge: 8 * 60 * 60 * 1000 }
+  rolling: true,
+  cookie: { httpOnly: true, maxAge: 30 * 60 * 1000 }
 }));
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -386,8 +387,14 @@ app.post('/api/returns/:id/authorize', requireRole('PHARMACIST', 'ADMINISTRATOR'
               (id, batch_id, user_id, timestamp, type, quantity_delta, reason_code, return_id)
             VALUES (?, ?, ?, ?, 'QUARANTINE_IN', ?, ?, ?)
           `).run(generateId('MV'), line.batch_id, pharmacistId, now, line.quantity, ret.reason_code, ret.id);
+        } else {
+          // DISPOSE: items received back from patient and immediately destroyed
+          db.prepare(`
+            INSERT INTO stock_movements
+              (id, batch_id, user_id, timestamp, type, quantity_delta, reason_code, return_id)
+            VALUES (?, ?, ?, ?, 'RETURN', ?, 'DISPOSED', ?)
+          `).run(generateId('MV'), line.batch_id, pharmacistId, now, line.quantity, ret.id);
         }
-        // DISPOSE: no stock movement needed
       }
 
       db.prepare(`
@@ -492,14 +499,14 @@ app.post('/api/quarantine/:returnLineId/resolve', requireRole('PHARMACIST', 'ADM
         db.prepare(`
           INSERT INTO stock_movements
             (id, batch_id, user_id, timestamp, type, quantity_delta, reason_code, return_id)
-          VALUES (?, ?, ?, ?, 'QUARANTINE_OUT', ?, 'RELEASE', ?)
+          VALUES (?, ?, ?, ?, 'ADJUSTMENT', ?, 'RELEASED_FROM_QUARANTINE', ?)
         `).run(generateId('MV'), line.batch_id, userId, now, line.quantity, line.return_id);
       } else {
         // DISPOSE: quarantine decreases, available stays the same
         db.prepare(`
           INSERT INTO stock_movements
             (id, batch_id, user_id, timestamp, type, quantity_delta, reason_code, return_id)
-          VALUES (?, ?, ?, ?, 'QUARANTINE_OUT', ?, 'DISPOSE', ?)
+          VALUES (?, ?, ?, ?, 'ADJUSTMENT', ?, 'DESTROYED_FROM_QUARANTINE', ?)
         `).run(generateId('MV'), line.batch_id, userId, now, -line.quantity, line.return_id);
       }
 
@@ -671,7 +678,7 @@ app.post('/api/users', requireRole('ADMINISTRATOR'), (req, res) => {
     db.prepare(`
       INSERT INTO users (id, username, full_name, password_hash, role, active, created_at)
       VALUES (?, ?, ?, ?, ?, 1, ?)
-    `).run(id, username.trim().toLowerCase(), fullName.trim(), password, role, now);
+    `).run(id, username.trim().toLowerCase(), fullName.trim(), require('bcryptjs').hashSync(password, 10), role, now);
     const user = db.prepare(
       'SELECT id, username, full_name, role, active, created_at FROM users WHERE id = ?'
     ).get(id);
@@ -693,7 +700,8 @@ app.patch('/api/users/:id', requireRole('ADMINISTRATOR'), (req, res) => {
     db.prepare('UPDATE users SET active = ? WHERE id = ?').run(active ? 1 : 0, req.params.id);
   }
   if (newPassword) {
-    db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(newPassword, req.params.id);
+    db.prepare('UPDATE users SET password_hash = ? WHERE id = ?')
+      .run(require('bcryptjs').hashSync(newPassword, 10), req.params.id);
   }
   const updated = db.prepare(
     'SELECT id, username, full_name, role, active, created_at FROM users WHERE id = ?'
