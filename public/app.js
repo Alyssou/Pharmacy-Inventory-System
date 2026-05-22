@@ -482,9 +482,47 @@ $('#refresh-history').addEventListener('click', loadHistory);
 
 // Ledger view
 
+function initLedgerDates() {
+  if ($('#ledger-to').value) return;
+  const to   = new Date().toISOString().split('T')[0];
+  const from = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  $('#ledger-from').value = from;
+  $('#ledger-to').value   = to;
+}
+
+async function populateLedgerUserSelect() {
+  if ($('#ledger-user').options.length > 1) return; // already populated
+  try {
+    const res = await fetch('/api/users');
+    if (!res.ok) return;
+    const users = await res.json();
+    users.forEach(u => {
+      const opt = document.createElement('option');
+      opt.value = u.id;
+      opt.textContent = `${u.full_name} (${u.role})`;
+      $('#ledger-user').appendChild(opt);
+    });
+  } catch (_) {}
+}
+
 async function loadLedger() {
-  const res = await fetch('/api/movements');
+  initLedgerDates();
+  await populateLedgerUserSelect();
+
+  const from   = $('#ledger-from').value;
+  const to     = $('#ledger-to').value;
+  const type   = $('#ledger-type').value;
+  const userId = $('#ledger-user').value;
+
+  const params = new URLSearchParams();
+  if (from)   params.set('from', from);
+  if (to)     params.set('to', to);
+  if (type)   params.set('type', type);
+  if (userId) params.set('userId', userId);
+
+  const res = await fetch(`/api/movements?${params}`);
   if (res.status === 401) { showLogin(); return; }
+  if (res.status === 403) return;
   const movements = await res.json();
   const list = $('#ledger-list');
   const header = `
@@ -494,10 +532,11 @@ async function loadLedger() {
       <div>Medicine / Batch</div>
       <div class="delta">Delta</div>
       <div>User</div>
+      <div>Reason</div>
     </div>
   `;
   if (movements.length === 0) {
-    list.innerHTML = header + '<div style="padding:40px 20px;color:var(--ink-muted);text-align:center;">No movements recorded.</div>';
+    list.innerHTML = header + '<div style="padding:40px 20px;color:var(--ink-muted);text-align:center;">No movements match the selected filters.</div>';
     return;
   }
   list.innerHTML = header + movements.map(m => `
@@ -507,6 +546,7 @@ async function loadLedger() {
       <div>${m.medicine_name} &middot; <span style="color:var(--ink-muted)">${m.batch_number}</span></div>
       <div class="delta ${m.quantity_delta < 0 ? 'negative' : 'positive'}">${m.quantity_delta > 0 ? '+' : ''}${m.quantity_delta}</div>
       <div>${m.user_name}</div>
+      <div style="font-size:11px;color:var(--ink-muted)">${m.reason_code || '—'}</div>
     </div>
   `).join('');
 }
@@ -1075,9 +1115,11 @@ function renderUserList(users) {
 
   const rows = users.map(u => {
     const isSelf = u.id === state.user?.id;
-    const toggleLabel = u.active ? 'Deactivate' : 'Activate';
-    const toggleStyle = u.active ? '' : 'color:var(--accent)';
+    const toggleLabel    = u.active ? 'Deactivate' : 'Activate';
+    const toggleStyle    = u.active ? '' : 'color:var(--accent)';
     const toggleDisabled = isSelf && u.active ? 'disabled title="Cannot deactivate your own account"' : '';
+    const roleOptions    = ['ADMINISTRATOR','PHARMACIST','CASHIER']
+      .map(r => `<option value="${r}" ${r === u.role ? 'selected' : ''}>${r}</option>`).join('');
     return `
       <div class="user-row ${!u.active ? 'row-expired' : ''}">
         <div class="user-fullname">
@@ -1085,7 +1127,12 @@ function renderUserList(users) {
           ${isSelf ? '<span class="chip chip-muted" style="font-size:9px;margin-left:4px">YOU</span>' : ''}
         </div>
         <div class="mono" style="font-size:12px">${u.username}</div>
-        <div><span class="${ROLE_CHIP[u.role] || 'chip chip-muted'}">${u.role}</span></div>
+        <div>
+          <select class="form-input form-select btn-user-role" data-id="${u.id}" data-current="${u.role}"
+                  style="font-size:11px;padding:3px 6px;height:auto;width:auto">
+            ${roleOptions}
+          </select>
+        </div>
         <div><span class="chip ${u.active ? 'chip-ok' : 'chip-muted'}">${u.active ? 'ACTIVE' : 'INACTIVE'}</span></div>
         <div class="user-actions">
           <button class="btn-secondary btn-user-toggle" data-id="${u.id}" data-active="${u.active ? 0 : 1}"
@@ -1098,6 +1145,28 @@ function renderUserList(users) {
 
   list.innerHTML = header + rows;
 }
+
+$('#user-list').addEventListener('change', async (e) => {
+  const sel = e.target.closest('.btn-user-role');
+  if (!sel) return;
+  const newRole = sel.value;
+  const oldRole = sel.dataset.current;
+  if (newRole === oldRole) return;
+  if (!confirm(`Change role from ${oldRole} to ${newRole}?`)) {
+    sel.value = oldRole; // revert
+    return;
+  }
+  const res = await fetch(`/api/users/${encodeURIComponent(sel.dataset.id)}/role`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ role: newRole })
+  });
+  if (res.status === 401) { showLogin(); return; }
+  const data = await res.json();
+  if (!data.ok) { toast(data.error, 'error'); sel.value = oldRole; return; }
+  toast(`Role updated to ${newRole}`, 'success');
+  loadUsers();
+});
 
 $('#user-list').addEventListener('click', async (e) => {
   const toggleBtn = e.target.closest('.btn-user-toggle');

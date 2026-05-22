@@ -688,13 +688,38 @@ app.post('/api/users', requireRole('ADMINISTRATOR'), (req, res) => {
   }
 });
 
-app.patch('/api/users/:id', requireRole('ADMINISTRATOR'), (req, res) => {
-  const { active, newPassword } = req.body || {};
+app.patch('/api/users/:id/role', requireRole('ADMINISTRATOR'), (req, res) => {
+  const { role } = req.body || {};
+  const validRoles = ['ADMINISTRATOR', 'PHARMACIST', 'CASHIER'];
+  if (!validRoles.includes(role)) {
+    return res.status(400).json({ ok: false, error: 'Invalid role' });
+  }
   const target = db.prepare('SELECT id FROM users WHERE id = ?').get(req.params.id);
   if (!target) return res.status(404).json({ ok: false, error: 'User not found' });
+  db.prepare('UPDATE users SET role = ? WHERE id = ?').run(role, req.params.id);
+  const updated = db.prepare(
+    'SELECT id, username, full_name, role, active, created_at FROM users WHERE id = ?'
+  ).get(req.params.id);
+  res.json({ ok: true, user: updated });
+});
 
-  if ((active === 0 || active === false) && req.params.id === req.session.user.id) {
-    return res.status(400).json({ ok: false, error: 'You cannot deactivate your own account' });
+app.patch('/api/users/:id', requireRole('ADMINISTRATOR'), (req, res) => {
+  const { active, newPassword } = req.body || {};
+  const target = db.prepare('SELECT id, role FROM users WHERE id = ?').get(req.params.id);
+  if (!target) return res.status(404).json({ ok: false, error: 'User not found' });
+
+  if (active === 0 || active === false) {
+    if (req.params.id === req.session.user.id) {
+      return res.status(400).json({ ok: false, error: 'You cannot deactivate your own account' });
+    }
+    if (target.role === 'ADMINISTRATOR') {
+      const activeAdmins = db.prepare(
+        "SELECT COUNT(*) AS c FROM users WHERE role = 'ADMINISTRATOR' AND active = 1"
+      ).get().c;
+      if (activeAdmins <= 1) {
+        return res.status(400).json({ ok: false, error: 'Cannot deactivate the last active administrator' });
+      }
+    }
   }
   if (active !== undefined && active !== null) {
     db.prepare('UPDATE users SET active = ? WHERE id = ?').run(active ? 1 : 0, req.params.id);
@@ -855,9 +880,29 @@ app.get('/api/reports/movements', requireRole('PHARMACIST', 'ADMINISTRATOR'), (r
 
 // --- Audit ledger ---
 
-app.get('/api/movements', (req, res) => {
-  const movements = movementRepo.findRecent(50);
-  res.json(movements);
+app.get('/api/movements', requireRole('ADMINISTRATOR'), (req, res) => {
+  const { userId, from, to, type } = req.query;
+  const fromTs = from ? `${from}T00:00:00.000Z` : '1970-01-01T00:00:00.000Z';
+  const toTs   = to   ? `${to}T23:59:59.999Z`   : new Date().toISOString();
+  const validTypes = ['INTAKE','SALE','RETURN','ADJUSTMENT','QUARANTINE_IN','QUARANTINE_OUT'];
+  const useType = type && validTypes.includes(type);
+  const useUser = !!userId;
+
+  const rows = db.prepare(`
+    SELECT sm.id, sm.timestamp, sm.type, sm.quantity_delta, sm.reason_code,
+           m.name AS medicine_name, b.batch_number, u.full_name AS user_name, u.id AS user_id
+    FROM stock_movements sm
+    JOIN batches b   ON sm.batch_id   = b.id
+    JOIN medicines m ON b.medicine_id = m.id
+    JOIN users u     ON sm.user_id    = u.id
+    WHERE sm.timestamp >= ? AND sm.timestamp <= ?
+    ${useType ? 'AND sm.type = ?'    : ''}
+    ${useUser ? 'AND sm.user_id = ?' : ''}
+    ORDER BY sm.timestamp DESC
+    LIMIT 200
+  `).all(...[fromTs, toTs, ...(useType ? [type] : []), ...(useUser ? [userId] : [])]);
+
+  res.json(rows);
 });
 
 

@@ -54,7 +54,7 @@
         <button class="tab active" data-view="sale" data-roles="CASHIER">New Sale</button>
         <button class="tab hidden" data-view="catalog" data-roles="PHARMACIST,ADMINISTRATOR">Catalog</button>
         <button class="tab" data-view="history">Sales History</button>
-        <button class="tab" data-view="ledger">Audit Ledger</button>
+        <button class="tab hidden" data-view="ledger" data-roles="ADMINISTRATOR">Audit Ledger</button>
         <button class="tab hidden" data-view="batches" data-roles="PHARMACIST,ADMINISTRATOR">Batches</button>
         <button class="tab hidden" data-view="returns"     data-roles="CASHIER,PHARMACIST">Returns</button>
         <button class="tab hidden" data-view="quarantine"   data-roles="PHARMACIST,ADMINISTRATOR">Quarantine</button>
@@ -503,6 +503,32 @@
           <div class="panel-head">
             <h2>Stock Movement Ledger</h2>
             <button id="refresh-ledger" class="btn-secondary">Refresh</button>
+          </div>
+          <div class="report-filters" style="padding:0 0 12px 0">
+            <div style="display:flex;align-items:center;gap:8px">
+              <label class="form-label" style="margin:0;white-space:nowrap">From</label>
+              <input id="ledger-from" type="date" class="form-input" style="width:140px">
+              <label class="form-label" style="margin:0;white-space:nowrap">To</label>
+              <input id="ledger-to"   type="date" class="form-input" style="width:140px">
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <label class="form-label" style="margin:0;white-space:nowrap">Type</label>
+              <select id="ledger-type" class="form-input form-select" style="width:160px">
+                <option value="">All types</option>
+                <option value="INTAKE">INTAKE</option>
+                <option value="SALE">SALE</option>
+                <option value="RETURN">RETURN</option>
+                <option value="ADJUSTMENT">ADJUSTMENT</option>
+                <option value="QUARANTINE_IN">QUARANTINE_IN</option>
+                <option value="QUARANTINE_OUT">QUARANTINE_OUT</option>
+              </select>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <label class="form-label" style="margin:0;white-space:nowrap">User</label>
+              <select id="ledger-user" class="form-input form-select" style="width:160px">
+                <option value="">All users</option>
+              </select>
+            </div>
           </div>
           <div id="ledger-list" class="ledger-list"></div>
         </div>
