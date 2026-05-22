@@ -827,24 +827,28 @@ function openAuthModal(returnId) {
 $('#close-auth-modal').addEventListener('click', () => $('#auth-modal').classList.add('hidden'));
 
 async function submitAuthorization(decision) {
-  const returnId  = $('#auth-modal').dataset.returnId;
-  const ret       = state.returns.find(r => r.id === returnId);
-  const errEl     = $('#auth-error');
+  const returnId = $('#auth-modal').dataset.returnId;
+  const ret      = state.returns.find(r => r.id === returnId);
+  const errEl    = $('#auth-error');
   errEl.classList.add('hidden');
 
-  let dispositions = [];
+  let url, body;
   if (decision === 'AUTHORIZED') {
-    dispositions = ret.lines.map(l => {
-      const checked = $('#auth-modal-body').querySelector(`input[name="disp-${l.id}"]:checked`);
-      return { returnLineId: l.id, disposition: checked ? checked.value : 'DISPOSE' };
+    url  = `/api/returns/${encodeURIComponent(returnId)}/authorize`;
+    body = JSON.stringify({
+      dispositions: ret.lines.map(l => {
+        const checked = $('#auth-modal-body').querySelector(`input[name="disp-${l.id}"]:checked`);
+        return { returnLineId: l.id, disposition: checked ? checked.value : 'DISPOSE' };
+      })
     });
+  } else {
+    url  = `/api/returns/${encodeURIComponent(returnId)}/reject`;
+    body = JSON.stringify({});
   }
 
   try {
-    const res = await fetch(`/api/returns/${encodeURIComponent(returnId)}/authorize`, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ decision, dispositions })
+    const res = await fetch(url, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body
     });
     if (res.status === 401) { showLogin(); return; }
     const data = await res.json();
@@ -857,7 +861,7 @@ async function submitAuthorization(decision) {
     const verb = decision === 'AUTHORIZED' ? 'authorised' : 'rejected';
     toast(`Return ${returnId} ${verb}`, decision === 'AUTHORIZED' ? 'success' : 'info');
     loadReturns();
-    loadCatalog(); // stock may have changed
+    loadCatalog();
   } catch (err) {
     errEl.textContent = err.message;
     errEl.classList.remove('hidden');
@@ -1251,7 +1255,7 @@ $('#user-form').addEventListener('submit', async (e) => {
 
 function updateReportFilterVisibility() {
   const type = $('#report-type').value;
-  $('#report-date-range').classList.toggle('hidden', type === 'STOCK_VALUATION' || type === 'EXPIRY');
+  $('#report-date-range').classList.toggle('hidden', type === 'STOCK_VALUATION');
   $('#report-type-filter').classList.toggle('hidden', type !== 'MOVEMENTS');
 }
 
@@ -1279,10 +1283,10 @@ async function runReport() {
   output.innerHTML = '<div style="padding:32px 20px;color:var(--ink-muted)">Loading…</div>';
 
   const urls = {
-    SALES:           `/api/reports/sales?from=${from}&to=${to}`,
-    STOCK_VALUATION: `/api/reports/stock-valuation`,
-    EXPIRY:          `/api/reports/expiry`,
-    MOVEMENTS:       `/api/reports/movements?from=${from}&to=${to}&type=${movType}`,
+    SALES:           `/api/reports/sales?start=${from}&end=${to}`,
+    STOCK_VALUATION: `/api/reports/stock`,
+    EXPIRY:          `/api/reports/expiry?start=${from}&end=${to}`,
+    MOVEMENTS:       `/api/reports/movements?start=${from}&end=${to}&type=${movType}`,
   };
 
   try {
@@ -1300,9 +1304,9 @@ async function runReport() {
   }
 }
 
-function renderSalesReport({ summary, byMedicine, from, to }, output) {
+function renderSalesReport({ summary, byMedicine, start, end }, output) {
   if (summary.sale_count === 0) {
-    output.innerHTML = `<div style="padding:40px 20px;color:var(--ink-muted);text-align:center;">No sales found for ${from} – ${to}.</div>`;
+    output.innerHTML = `<div style="padding:40px 20px;color:var(--ink-muted);text-align:center;">No sales found for ${start} – ${end}.</div>`;
     return;
   }
   output.innerHTML = `
@@ -1311,7 +1315,7 @@ function renderSalesReport({ summary, byMedicine, from, to }, output) {
       <div class="report-kpi"><span class="report-kpi-val">${fmtFCFA(summary.total_revenue)}</span><span class="report-kpi-lbl">Total Revenue</span></div>
       <div class="report-kpi"><span class="report-kpi-val">${fmtFCFA(summary.total_revenue / summary.sale_count)}</span><span class="report-kpi-lbl">Avg per Sale</span></div>
     </div>
-    <div class="report-section-title">Breakdown by Medicine &middot; ${from} to ${to}</div>
+    <div class="report-section-title">Breakdown by Medicine &middot; ${start} to ${end}</div>
     <div class="report-table report-table-sales">
       <div class="report-row report-header">
         <div>Medicine</div><div>Category</div>
@@ -1401,13 +1405,13 @@ function renderExpiryReport({ rows, asOf }, output) {
     </div>`;
 }
 
-function renderMovementsReport({ rows, from, to, type }, output) {
+function renderMovementsReport({ rows, start, end, type }, output) {
   if (rows.length === 0) {
     output.innerHTML = '<div style="padding:40px 20px;color:var(--ink-muted);text-align:center;">No movements found for the selected filters.</div>';
     return;
   }
   const netDelta = rows.reduce((s, r) => s + r.quantity_delta, 0);
-  const subtitle = `${from || 'all time'} to ${to || 'now'}${type !== 'ALL' ? ' · ' + type : ''}`;
+  const subtitle = `${start || 'all time'} to ${end || 'now'}${type !== 'ALL' ? ' · ' + type : ''}`;
 
   output.innerHTML = `
     <div class="report-summary-bar">
@@ -1439,7 +1443,7 @@ $('#run-report').addEventListener('click', runReport);
 // Inventory alerts ( low-stock + expiring soon)
 
 async function loadAlerts() {
-  const res = await fetch('/api/alerts');
+  const res = await fetch('/api/inventory/alerts');
   if (!res.ok) return;
   const { lowStock, expiringSoon } = await res.json();
   const strip = $('#alert-strip');

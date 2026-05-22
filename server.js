@@ -325,12 +325,21 @@ app.post('/api/returns', requireRole('CASHIER'), (req, res) => {
   }
 });
 
-app.post('/api/returns/:id/authorize', requireRole('PHARMACIST', 'ADMINISTRATOR'), (req, res) => {
-  const { decision, dispositions } = req.body || {};
-
-  if (!['AUTHORIZED', 'REJECTED'].includes(decision)) {
-    return res.status(400).json({ ok: false, error: 'decision must be AUTHORIZED or REJECTED' });
+app.patch('/api/returns/:id/reject', requireRole('PHARMACIST', 'ADMINISTRATOR'), (req, res) => {
+  const ret = db.prepare('SELECT * FROM returns WHERE id = ?').get(req.params.id);
+  if (!ret) return res.status(404).json({ ok: false, error: 'Return not found' });
+  if (ret.status !== 'PENDING_AUTH') {
+    return res.status(400).json({ ok: false, error: `Return is already ${ret.status}` });
   }
+  const now = new Date().toISOString();
+  db.prepare(`
+    UPDATE returns SET status = 'REJECTED', pharmacist_id = ?, authorized_at = ? WHERE id = ?
+  `).run(req.session.user.id, now, ret.id);
+  res.json({ ok: true, status: 'REJECTED' });
+});
+
+app.patch('/api/returns/:id/authorize', requireRole('PHARMACIST', 'ADMINISTRATOR'), (req, res) => {
+  const { dispositions } = req.body || {};
 
   const ret = db.prepare('SELECT * FROM returns WHERE id = ?').get(req.params.id);
   if (!ret) return res.status(404).json({ ok: false, error: 'Return not found' });
@@ -340,13 +349,6 @@ app.post('/api/returns/:id/authorize', requireRole('PHARMACIST', 'ADMINISTRATOR'
 
   const now          = new Date().toISOString();
   const pharmacistId = req.session.user.id;
-
-  if (decision === 'REJECTED') {
-    db.prepare(`
-      UPDATE returns SET status = 'REJECTED', pharmacist_id = ?, authorized_at = ? WHERE id = ?
-    `).run(pharmacistId, now, ret.id);
-    return res.json({ ok: true, status: 'REJECTED' });
-  }
 
   const returnLines = db.prepare('SELECT * FROM return_lines WHERE return_id = ?').all(ret.id);
   if (!Array.isArray(dispositions) || dispositions.length !== returnLines.length) {
@@ -736,7 +738,7 @@ app.patch('/api/users/:id', requireRole('ADMINISTRATOR'), (req, res) => {
 
 // --- Alerts ---
 
-app.get('/api/alerts', (req, res) => {
+app.get('/api/inventory/alerts', (req, res) => {
   const today = new Date().toISOString().split('T')[0];
   const soon  = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
@@ -767,9 +769,9 @@ app.get('/api/alerts', (req, res) => {
 
 app.get('/api/reports/sales', requireRole('PHARMACIST', 'ADMINISTRATOR'), (req, res) => {
   try {
-    const { from, to } = req.query;
-    const fromTs = from ? `${from}T00:00:00.000Z` : '1970-01-01T00:00:00.000Z';
-    const toTs   = to   ? `${to}T23:59:59.999Z`   : new Date().toISOString();
+    const { start, end } = req.query;
+    const fromTs = start ? `${start}T00:00:00.000Z` : '1970-01-01T00:00:00.000Z';
+    const toTs   = end   ? `${end}T23:59:59.999Z`   : new Date().toISOString();
 
     const summary = db.prepare(`
       SELECT COUNT(DISTINCT s.id)              AS sale_count,
@@ -790,14 +792,14 @@ app.get('/api/reports/sales', requireRole('PHARMACIST', 'ADMINISTRATOR'), (req, 
       ORDER BY revenue DESC
     `).all(fromTs, toTs);
 
-    res.json({ summary, byMedicine, from, to });
+    res.json({ summary, byMedicine, start, end });
   } catch (err) {
     console.error('Report error (sales):', err.message);
     res.status(500).json({ ok: false, error: err.message });
   }
 });
 
-app.get('/api/reports/stock-valuation', requireRole('PHARMACIST', 'ADMINISTRATOR'), (req, res) => {
+app.get('/api/reports/stock', requireRole('PHARMACIST', 'ADMINISTRATOR'), (req, res) => {
   try {
     const today = new Date().toISOString().split('T')[0];
 
@@ -824,8 +826,11 @@ app.get('/api/reports/stock-valuation', requireRole('PHARMACIST', 'ADMINISTRATOR
 
 app.get('/api/reports/expiry', requireRole('PHARMACIST', 'ADMINISTRATOR'), (req, res) => {
   try {
-    const today = new Date().toISOString().split('T')[0];
-    const soon  = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const { start, end } = req.query;
+    const today     = new Date().toISOString().split('T')[0];
+    const soon      = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const startDate = start || '1970-01-01';
+    const endDate   = end   || '9999-12-31';
 
     const rows = db.prepare(`
       SELECT b.id, b.batch_number, b.expiry_date,
@@ -839,10 +844,11 @@ app.get('/api/reports/expiry', requireRole('PHARMACIST', 'ADMINISTRATOR'), (req,
       FROM batches b
       JOIN medicines m ON b.medicine_id = m.id
       WHERE m.active = 1
+        AND b.expiry_date >= ? AND b.expiry_date <= ?
       ORDER BY b.expiry_date ASC
-    `).all(today, soon);
+    `).all(today, soon, startDate, endDate);
 
-    res.json({ rows, asOf: today });
+    res.json({ rows, asOf: today, start: startDate, end: endDate });
   } catch (err) {
     console.error('Report error (expiry):', err.message);
     res.status(500).json({ ok: false, error: err.message });
@@ -851,12 +857,13 @@ app.get('/api/reports/expiry', requireRole('PHARMACIST', 'ADMINISTRATOR'), (req,
 
 app.get('/api/reports/movements', requireRole('PHARMACIST', 'ADMINISTRATOR'), (req, res) => {
   try {
-    const { from, to, type } = req.query;
-    const fromTs = from ? `${from}T00:00:00.000Z` : '1970-01-01T00:00:00.000Z';
-    const toTs   = to   ? `${to}T23:59:59.999Z`   : new Date().toISOString();
+    const { start, end, type, batchId } = req.query;
+    const fromTs = start ? `${start}T00:00:00.000Z` : '1970-01-01T00:00:00.000Z';
+    const toTs   = end   ? `${end}T23:59:59.999Z`   : new Date().toISOString();
 
     const validTypes = ['INTAKE','SALE','RETURN','ADJUSTMENT','QUARANTINE_IN','QUARANTINE_OUT'];
-    const useType    = type && validTypes.includes(type);
+    const useType    = type    && validTypes.includes(type);
+    const useBatch   = !!batchId;
 
     const rows = db.prepare(`
       SELECT sm.timestamp, sm.type, sm.quantity_delta, sm.reason_code,
@@ -866,12 +873,13 @@ app.get('/api/reports/movements', requireRole('PHARMACIST', 'ADMINISTRATOR'), (r
       JOIN medicines m ON b.medicine_id = m.id
       JOIN users u     ON sm.user_id    = u.id
       WHERE sm.timestamp >= ? AND sm.timestamp <= ?
-      ${useType ? 'AND sm.type = ?' : ''}
+      ${useType  ? 'AND sm.type = ?'    : ''}
+      ${useBatch ? 'AND sm.batch_id = ?' : ''}
       ORDER BY sm.timestamp DESC
       LIMIT 200
-    `).all(...(useType ? [fromTs, toTs, type] : [fromTs, toTs]));
+    `).all(...[fromTs, toTs, ...(useType ? [type] : []), ...(useBatch ? [batchId] : [])]);
 
-    res.json({ rows, from, to, type: type || 'ALL' });
+    res.json({ rows, start, end, type: type || 'ALL', batchId: batchId || null });
   } catch (err) {
     console.error('Report error (movements):', err.message);
     res.status(500).json({ ok: false, error: err.message });
