@@ -501,7 +501,7 @@ app.post('/api/quarantine/:returnLineId/resolve', requireRole('PHARMACIST', 'ADM
         db.prepare(`
           INSERT INTO stock_movements
             (id, batch_id, user_id, timestamp, type, quantity_delta, reason_code, return_id)
-          VALUES (?, ?, ?, ?, 'ADJUSTMENT', ?, 'RELEASED_FROM_QUARANTINE', ?)
+          VALUES (?, ?, ?, ?, 'QUARANTINE_OUT', ?, 'RELEASED_FROM_QUARANTINE', ?)
         `).run(generateId('MV'), line.batch_id, userId, now, line.quantity, line.return_id);
       } else {
         // DISPOSE: quarantine decreases, available stays the same
@@ -819,7 +819,7 @@ app.get('/api/reports/stock', requireRole('PHARMACIST', 'ADMINISTRATOR'), (req, 
     const totalSellable = withValue.reduce((s, r) => s + r.sellable_value, 0);
     res.json({ rows: withValue, totalSellable, asOf: today });
   } catch (err) {
-    console.error('Report error (stock-valuation):', err.message);
+    console.error('Report error (stock):', err.message);
     res.status(500).json({ ok: false, error: err.message });
   }
 });
